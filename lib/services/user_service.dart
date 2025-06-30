@@ -12,7 +12,7 @@ class UserService {
   final SecureStorageService _secureStorage = SecureStorageService();
   
   // API endpoint
-  static const String baseUrl = 'http://192.168.219.61:8080/v1/api';
+  static const String baseUrl = 'http://192.168.174.214:8080/v1/api';
   
   // Singleton pattern
   static final UserService _instance = UserService._internal();

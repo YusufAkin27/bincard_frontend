@@ -110,9 +110,6 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Auth servisinden token kontrolü yap
-    final authService = Provider.of<AuthService>(context, listen: false);
-    
     // Periyodik token kontrolü başlat (5 dakikada bir)
     startPeriodicTokenCheck(context);
     
@@ -126,9 +123,11 @@ class MyApp extends StatelessWidget {
           darkTheme: AppTheme.darkTheme,
           themeMode: themeService.themeMode,
           locale: languageService.locale,
-          // AppRoutes.routes içinde '/' route'u olduğu için home özelliğini kaldırıyoruz
-          initialRoute: '/',
-          routes: AppRoutes.routes,
+          initialRoute: '/splash', // Uygulama her zaman Splash Screen'den başlayacak
+          routes: {
+            ...AppRoutes.routes,
+            '/splash': (context) => const SplashScreen(), // Splash Screen'i routes'a ekle
+          },
           onGenerateRoute: AppRoutes.generateRoute,
           onUnknownRoute: (settings) {
             return MaterialPageRoute(
@@ -179,8 +178,56 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class SplashScreen extends StatelessWidget {
+class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkTokenAndNavigate();
+    });
+  }
+
+  Future<void> _checkTokenAndNavigate() async {
+    try {
+      // Small delay to show the splash screen
+      await Future.delayed(const Duration(seconds: 2));
+
+      if (!mounted) return; // Widget'ın hala ağaçta olup olmadığını kontrol et
+
+      final authService = Provider.of<AuthService>(context, listen: false);
+      
+      // Token kontrolü ve yenileme işlemi için zaman aşımı ekle
+      final tokenValid = await authService.checkAndRefreshToken().timeout(
+        const Duration(seconds: 10), // 10 saniye zaman aşımı
+        onTimeout: () {
+          debugPrint('Token kontrolü zaman aşımına uğradı, login sayfasına yönlendiriliyor...');
+          return false; // Zaman aşımında token geçersiz kabul et
+        },
+      );
+
+      if (mounted) {
+        if (tokenValid) {
+          debugPrint('Token geçerli, ana sayfaya yönlendiriliyor...');
+          Navigator.pushReplacementNamed(context, '/');
+        } else {
+          debugPrint('Token geçersiz veya kontrol edilemedi, login sayfasına yönlendiriliyor...');
+          Navigator.pushReplacementNamed(context, '/login');
+        }
+      }
+    } catch (e) {
+      debugPrint('Splash ekranından yönlendirme hatası: $e');
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/login');
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
