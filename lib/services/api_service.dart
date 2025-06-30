@@ -6,7 +6,7 @@ class ApiService {
   late Dio _dio;
   
   // API endpoint'i
-  static const String baseUrl = 'http://192.168.174.214:8080/v1/api';
+  static const String baseUrl = 'http://192.168.219.61:8080/v1/api';
   
   // Singleton pattern
   static final ApiService _instance = ApiService._internal();

@@ -15,7 +15,7 @@ class TokenService {
   final Dio _dio = Dio();
   
   // API endpoint'leri
-  static const String baseUrl = 'http://192.168.174.214:8080/v1/api'; // API URL'nizi buraya girin
+  static const String baseUrl = 'http://192.168.219.61:8080/v1/api'; // API URL'nizi buraya girin
   static const String refreshEndpoint = '/auth/refresh';
   
   // Otomatik token yenileme için threshold (saniye)

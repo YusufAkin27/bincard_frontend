@@ -5,14 +5,16 @@ import '../models/user_model.dart';
 import '../models/auth_model.dart';
 import 'token_service.dart';
 import 'secure_storage_service.dart';
+import 'api_service.dart';
 
 class UserService {
   final Dio _dio = Dio();
   final TokenService _tokenService = TokenService();
   final SecureStorageService _secureStorage = SecureStorageService();
+  final ApiService _apiService = ApiService();
   
   // API endpoint
-  static const String baseUrl = 'http://192.168.174.214:8080/v1/api';
+  static const String baseUrl = 'http://192.168.219.61:8080/v1/api';
   
   // Singleton pattern
   static final UserService _instance = UserService._internal();

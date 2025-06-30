@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../../services/auth_service.dart';
+import '../../services/api_service.dart';
+import 'package:dio/dio.dart';
 import 'login_screen.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
   final String phoneNumber;
+  final String resetToken;
   
   const ResetPasswordScreen({
     Key? key,
     required this.phoneNumber,
+    required this.resetToken,
   }) : super(key: key);
 
   @override
@@ -20,6 +24,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _authService = AuthService();
+  final _apiService = ApiService();
   
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -44,36 +49,47 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     });
 
     try {
-      // API isteği burada gerçekleştirilecek
-      // Örnek olarak bir ResponseMessage döndüğünü varsayalım
-      final response = await Future.delayed(
-        const Duration(seconds: 1),
-        () => ResponseMessage(
-          success: true,
-          message: 'Şifreniz başarıyla sıfırlandı.',
-        ),
+      // API isteği gönder
+      final response = await _apiService.post(
+        '/user/password/reset',
+        data: {
+          'resetToken': widget.resetToken,
+          'newPassword': _passwordController.text,
+        },
+        useLoginDio: true,
       );
 
-      if (response.success) {
-        if (!mounted) return;
+      if (response.statusCode == 200 && response.data != null) {
+        if (response.data['success'] == true) {
+          if (!mounted) return;
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response.message ?? 'Şifreniz başarıyla sıfırlandı!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response.data['message'] ?? 'Şifreniz başarıyla sıfırlandı!'),
+              backgroundColor: Colors.green,
+            ),
+          );
 
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
-          (route) => false,
-        );
+          // Giriş sayfasına yönlendir
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+            (route) => false,
+          );
+        } else {
+          setState(() {
+            _errorMessage = response.data['message'] ?? 'Şifre sıfırlama başarısız oldu.';
+          });
+        }
       } else {
         setState(() {
-          _errorMessage = response.message ?? 'Şifre sıfırlama başarısız oldu.';
+          _errorMessage = response.data?['message'] ?? 'Şifre sıfırlama başarısız oldu.';
         });
       }
+    } on DioException catch (e) {
+      setState(() {
+        _errorMessage = e.response?.data?['message'] ?? 'Bağlantı hatası';
+      });
     } catch (e) {
       setState(() {
         _errorMessage = 'Beklenmeyen bir hata oluştu: $e';

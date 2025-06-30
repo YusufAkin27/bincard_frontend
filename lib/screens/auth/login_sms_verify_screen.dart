@@ -8,15 +8,18 @@ import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../models/auth_model.dart';
 import '../../services/secure_storage_service.dart';
+import 'reset_password_screen.dart';
 
 class LoginSmsVerifyScreen extends StatefulWidget {
   final String phoneNumber;
   final String password;
+  final bool isPasswordReset;
 
   const LoginSmsVerifyScreen({
     Key? key,
     required this.phoneNumber,
     required this.password,
+    this.isPasswordReset = false,
   }) : super(key: key);
 
   @override
@@ -70,66 +73,13 @@ class _LoginSmsVerifyScreenState extends State<LoginSmsVerifyScreen> {
           return;
         }
 
-        // Cihaz ve IP bilgilerini al
-        final deviceInfo = await _authService.getDeviceInfo();
-        final ipAddress = await _authService.getIpAddress();
-        final appVersion = await _authService.getAppVersion();
-        final platform = _authService.getPlatform();
-
-        // API isteği için verileri hazırla
-        final data = {
-          'code': code,
-          'ipAddress': ipAddress,
-          'deviceInfo': deviceInfo,
-          'appVersion': appVersion,
-          'platform': platform,
-        };
-
-        debugPrint('SMS doğrulama isteği gönderiliyor: $data');
-
-        // API isteği gönder
-        final response = await _apiService.post(
-          '/auth/phone-verify',
-          data: data,
-          useLoginDio: true,
-        );
-
-        if (response.statusCode == 200 && response.data != null) {
-          // accessToken veya refreshToken yoksa hata mesajı göster
-          if (response.data['accessToken'] == null || response.data['refreshToken'] == null) {
-            final message = response.data['message'] ?? 'Doğrulama başarısız oldu.';
-            throw Exception(message);
-          }
-          
-          // Token yanıtını işle
-          final tokenResponse = TokenResponseDTO.fromJson(response.data);
-          
-          // Token'ları güvenli depolamaya kaydet
-          await _secureStorage.setAccessToken(tokenResponse.accessToken.token);
-          await _secureStorage.setRefreshToken(tokenResponse.refreshToken.token);
-          await _secureStorage.setAccessTokenExpiry(tokenResponse.accessToken.expiredAt.toIso8601String());
-          await _secureStorage.setRefreshTokenExpiry(tokenResponse.refreshToken.expiredAt.toIso8601String());
-          
-          // Token interceptor'ı etkinleştir
-          _apiService.setupTokenInterceptor();
-          
-          // Ana sayfaya yönlendir
-          if (mounted) {
-            Navigator.pushNamedAndRemoveUntil(
-              context,
-              AppRoutes.home,
-              (route) => false,
-            );
-          }
+        if (widget.isPasswordReset) {
+          // Şifre sıfırlama doğrulama kodu kontrolü
+          await _verifyPasswordResetCode(code);
         } else {
-          final message = response.data?['message'] ?? 'Doğrulama başarısız oldu.';
-          throw Exception(message);
+          // Normal giriş doğrulama kodu kontrolü
+          await _verifyLoginCode(code);
         }
-      } on DioException catch (e) {
-        setState(() {
-          _errorMessage = e.response?.data?['message'] ?? 'Bağlantı hatası';
-          _isLoading = false;
-        });
       } catch (e) {
         setState(() {
           _errorMessage = e.toString().replaceFirst('Exception: ', '');
@@ -139,11 +89,120 @@ class _LoginSmsVerifyScreenState extends State<LoginSmsVerifyScreen> {
     }
   }
 
+  Future<void> _verifyPasswordResetCode(String code) async {
+    try {
+      // Şifre sıfırlama doğrulama kodu API isteği
+      final response = await _apiService.post(
+        '/user/password/verify-code',
+        data: {'code': code},
+        useLoginDio: true,
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        if (response.data['success'] == true) {
+          final resetToken = response.data['resetToken'];
+          if (resetToken != null) {
+            // Şifre sıfırlama ekranına yönlendir
+            if (mounted) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ResetPasswordScreen(
+                    phoneNumber: widget.phoneNumber,
+                    resetToken: resetToken,
+                  ),
+                ),
+              );
+            }
+          } else {
+            throw Exception('Doğrulama başarılı ancak resetToken alınamadı.');
+          }
+        } else {
+          final message = response.data['message'] ?? 'Doğrulama başarısız oldu.';
+          throw Exception(message);
+        }
+      } else {
+        final message = response.data?['message'] ?? 'Doğrulama başarısız oldu.';
+        throw Exception(message);
+      }
+    } on DioException catch (e) {
+      setState(() {
+        _errorMessage = e.response?.data?['message'] ?? 'Bağlantı hatası';
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _verifyLoginCode(String code) async {
+    try {
+      // Cihaz ve IP bilgilerini al
+      final deviceInfo = await _authService.getDeviceInfo();
+      final ipAddress = await _authService.getIpAddress();
+      final appVersion = await _authService.getAppVersion();
+      final platform = _authService.getPlatform();
+
+      // API isteği için verileri hazırla
+      final data = {
+        'code': code,
+        'ipAddress': ipAddress,
+        'deviceInfo': deviceInfo,
+        'appVersion': appVersion,
+        'platform': platform,
+      };
+
+      debugPrint('SMS doğrulama isteği gönderiliyor: $data');
+
+      // API isteği gönder
+      final response = await _apiService.post(
+        '/auth/phone-verify',
+        data: data,
+        useLoginDio: true,
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        // accessToken veya refreshToken yoksa hata mesajı göster
+        if (response.data['accessToken'] == null || response.data['refreshToken'] == null) {
+          final message = response.data['message'] ?? 'Doğrulama başarısız oldu.';
+          throw Exception(message);
+        }
+        
+        // Token yanıtını işle
+        final tokenResponse = TokenResponseDTO.fromJson(response.data);
+        
+        // Token'ları güvenli depolamaya kaydet
+        await _secureStorage.setAccessToken(tokenResponse.accessToken.token);
+        await _secureStorage.setRefreshToken(tokenResponse.refreshToken.token);
+        await _secureStorage.setAccessTokenExpiry(tokenResponse.accessToken.expiredAt.toIso8601String());
+        await _secureStorage.setRefreshTokenExpiry(tokenResponse.refreshToken.expiredAt.toIso8601String());
+        
+        // Token interceptor'ı etkinleştir
+        _apiService.setupTokenInterceptor();
+        
+        // Ana sayfaya yönlendir
+        if (mounted) {
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            AppRoutes.home,
+            (route) => false,
+          );
+        }
+      } else {
+        final message = response.data?['message'] ?? 'Doğrulama başarısız oldu.';
+        throw Exception(message);
+      }
+    } on DioException catch (e) {
+      setState(() {
+        _errorMessage = e.response?.data?['message'] ?? 'Bağlantı hatası';
+        _isLoading = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('SMS Doğrulama'),
+        title: Text(widget.isPasswordReset ? 'Şifre Sıfırlama Doğrulama' : 'SMS Doğrulama'),
       ),
       body: SafeArea(
         child: Padding(
@@ -156,7 +215,7 @@ class _LoginSmsVerifyScreenState extends State<LoginSmsVerifyScreen> {
                 children: [
                   const SizedBox(height: 20),
                   Icon(
-                    Icons.phone_android,
+                    widget.isPasswordReset ? Icons.lock_reset : Icons.phone_android,
                     size: 80,
                     color: AppTheme.primaryColor,
                   ),
@@ -171,7 +230,9 @@ class _LoginSmsVerifyScreenState extends State<LoginSmsVerifyScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Yeni cihaz algılandı. Giriş için telefonunuza gönderilen 6 haneli doğrulama kodunu girin.',
+                    widget.isPasswordReset
+                        ? 'Şifrenizi sıfırlamak için telefonunuza gönderilen 6 haneli doğrulama kodunu girin.'
+                        : 'Yeni cihaz algılandı. Giriş için telefonunuza gönderilen 6 haneli doğrulama kodunu girin.',
                     style: TextStyle(
                       fontSize: 16,
                       color: AppTheme.textSecondaryColor,

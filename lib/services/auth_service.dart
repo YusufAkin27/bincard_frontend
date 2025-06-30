@@ -21,7 +21,7 @@ class AuthService {
   final BiometricService _biometricService = BiometricService();
   
   // API Endpoint
-  static const String baseUrl = 'http://192.168.174.214:8080/v1/api';
+  static const String baseUrl = 'http://192.168.219.61:8080/v1/api';
 
   // SharedPreferences Keys
   static const String tokenKey = 'auth_token';

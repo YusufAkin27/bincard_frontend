@@ -106,6 +106,7 @@ class AppRoutes {
         return MaterialPageRoute(
           builder: (context) => ResetPasswordScreen(
             phoneNumber: args?['phoneNumber'] as String? ?? '',
+            resetToken: args?['resetToken'] as String? ?? '',
           ),
         );
       case loginSmsVerify:

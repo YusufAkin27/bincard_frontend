@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/app_theme.dart';
+import '../../services/api_service.dart';
+import 'package:dio/dio.dart';
+import 'login_sms_verify_screen.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({Key? key}) : super(key: key);
@@ -22,6 +25,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+  bool _isLoading = false;
+  final ApiService _apiService = ApiService();
+  String _errorMessage = '';
 
   @override
   void initState() {
@@ -56,37 +62,76 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
     super.dispose();
   }
 
-  void _sendVerificationCode() {
+  void _sendVerificationCode() async {
     if (_formKey.currentState!.validate()) {
-      // TODO: Implement sending verification code
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Doğrulama kodu gönderiliyor...'),
-          duration: Duration(seconds: 2),
-        ),
-      );
+      setState(() {
+        _isLoading = true;
+        _errorMessage = '';
+      });
 
-      // Simüle edilen doğrulama kodu gönderme işlemi
-      Future.delayed(const Duration(seconds: 2), () {
-        setState(() {
-          _isVerificationSent = true;
-        });
-        _animationController.reset();
-        _animationController.forward();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Doğrulama kodu gönderildi!'),
-            backgroundColor: Colors.green.shade600,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
+      try {
+        // API isteği gönder
+        final phoneNumber = _phoneController.text;
+        final response = await _apiService.post(
+          '/user/password/forgot',
+          queryParameters: {'phone': phoneNumber},
+          useLoginDio: true,
         );
 
-        // İlk OTP alanına odaklan
-        _focusNodes[0].requestFocus();
-      });
+        if (response.statusCode == 200 && response.data != null) {
+          if (response.data['success'] == true) {
+            setState(() {
+              _isVerificationSent = true;
+              _isLoading = false;
+            });
+            _animationController.reset();
+            _animationController.forward();
+            
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(response.data['message'] ?? 'Doğrulama kodu gönderildi!'),
+                backgroundColor: Colors.green.shade600,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            );
+
+            // Şifre sıfırlama doğrulama ekranına yönlendir
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => LoginSmsVerifyScreen(
+                  phoneNumber: phoneNumber,
+                  password: '',
+                  isPasswordReset: true,
+                ),
+              ),
+            );
+          } else {
+            setState(() {
+              _errorMessage = response.data['message'] ?? 'Doğrulama kodu gönderme başarısız oldu.';
+              _isLoading = false;
+            });
+          }
+        } else {
+          setState(() {
+            _errorMessage = response.data?['message'] ?? 'Doğrulama kodu gönderme başarısız oldu.';
+            _isLoading = false;
+          });
+        }
+      } on DioException catch (e) {
+        setState(() {
+          _errorMessage = e.response?.data?['message'] ?? 'Bağlantı hatası';
+          _isLoading = false;
+        });
+      } catch (e) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -158,20 +203,24 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
                   children: [
                     _buildHeader(),
                     const SizedBox(height: 32),
-                    if (!_isVerificationSent) _buildPhoneInput(),
-                    if (_isVerificationSent) ...[
-                      _buildVerificationInfo(),
-                      const SizedBox(height: 32),
-                      _buildOtpInputs(),
+                    _buildPhoneInput(),
+                    if (_errorMessage.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          _errorMessage,
+                          style: TextStyle(color: Colors.red.shade800),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
                     ],
                     const SizedBox(height: 32),
-                    _isVerificationSent
-                        ? _buildResetButton()
-                        : _buildSendCodeButton(),
-                    if (_isVerificationSent) ...[
-                      const SizedBox(height: 16),
-                      _buildResendCodeButton(),
-                    ],
+                    _buildSendCodeButton(),
                     const SizedBox(height: 32),
                     _buildHelpSection(),
                   ],
