@@ -93,9 +93,6 @@ class _LoginScreenState extends State<LoginScreen>
       // Refresh token kontrolü yap
       await _checkRefreshToken();
       
-      // Mevcut oturumu kontrol et
-      await _checkExistingSession();
-      
       // Biyometrik doğrulama kontrolü
       await _checkBiometricAvailability();
       
@@ -226,14 +223,7 @@ class _LoginScreenState extends State<LoginScreen>
         final phoneNumber = phoneMaskFormatter.getUnmaskedText();
         final password = _passwordController.text.trim();
 
-        // Telefon numarası doğru formatta mı kontrol et
-        if (phoneNumber.length != 10) {
-          setState(() {
-            _errorMessage = 'Telefon numarası 10 haneli olmalıdır';
-            _isLoading = false;
-          });
-          return;
-        }
+       
 
         // Kullanıcı bilgilerini kaydet
         await _saveCredentials();

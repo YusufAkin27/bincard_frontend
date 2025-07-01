@@ -90,48 +90,67 @@ class _LoginSmsVerifyScreenState extends State<LoginSmsVerifyScreen> {
   }
 
   Future<void> _verifyPasswordResetCode(String code) async {
-    try {
-      // Şifre sıfırlama doğrulama kodu API isteği
-      final response = await _apiService.post(
-        '/user/password/verify-code',
-        data: {'code': code},
-        useLoginDio: true,
-      );
+  setState(() {
+    _isLoading = true;
+    _errorMessage = '';  // null yerine boş string kullanıldı
+  });
 
-      if (response.statusCode == 200 && response.data != null) {
-        if (response.data['success'] == true) {
-          final resetToken = response.data['resetToken'];
-          if (resetToken != null) {
-            // Şifre sıfırlama ekranına yönlendir
-            if (mounted) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ResetPasswordScreen(
-                    phoneNumber: widget.phoneNumber,
-                    resetToken: resetToken,
-                  ),
+  try {
+    // API isteği
+    final response = await _apiService.post(
+      '/user/password/verify-code',
+      data: {'code': code},
+      useLoginDio: true,
+    );
+
+    if (response.statusCode == 200 && response.data != null) {
+      final data = response.data;
+
+      // Başarılı yanıt kontrolü
+      if (data['isSuccess'] == true || data['success'] == true) {
+        final resetToken = data['message'] ?? data['resetToken'];
+
+        if (resetToken != null && resetToken is String && resetToken.isNotEmpty) {
+          // resetToken'ı güvenli belleğe kaydet
+          await _secureStorage.setUserData(resetToken);
+
+          // Şifre sıfırlama ekranına geç
+          if (mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ResetPasswordScreen(
+                  phoneNumber: widget.phoneNumber,
+                  resetToken: resetToken,
                 ),
-              );
-            }
-          } else {
-            throw Exception('Doğrulama başarılı ancak resetToken alınamadı.');
+              ),
+            );
           }
         } else {
-          final message = response.data['message'] ?? 'Doğrulama başarısız oldu.';
-          throw Exception(message);
+          throw Exception('Doğrulama başarılı ancak reset token alınamadı.');
         }
       } else {
-        final message = response.data?['message'] ?? 'Doğrulama başarısız oldu.';
+        final message = data['message'] ?? 'Doğrulama başarısız oldu.';
         throw Exception(message);
       }
-    } on DioException catch (e) {
-      setState(() {
-        _errorMessage = e.response?.data?['message'] ?? 'Bağlantı hatası';
-        _isLoading = false;
-      });
+    } else {
+      final message = response.data?['message'] ?? 'Doğrulama başarısız oldu.';
+      throw Exception(message);
     }
+  } on DioException catch (e) {
+    setState(() {
+      _errorMessage = e.response?.data?['message'] ?? 'Bağlantı hatası';
+    });
+  } catch (e) {
+    setState(() {
+      _errorMessage = e.toString();
+    });
+  } finally {
+    setState(() {
+      _isLoading = false;
+    });
   }
+}
 
   Future<void> _verifyLoginCode(String code) async {
     try {

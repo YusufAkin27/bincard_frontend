@@ -6,7 +6,7 @@ class ApiService {
   late Dio _dio;
   
   // API endpoint'i
-  static const String baseUrl = 'http://192.168.219.61:8080/v1/api';
+  static const String baseUrl = 'http://192.168.174.214:8080/v1/api';
   
   // Singleton pattern
   static final ApiService _instance = ApiService._internal();
@@ -105,6 +105,18 @@ class ApiService {
   }) async {
     try {
       final dio = useLoginDio ? loginDio : _dio;
+      
+      // Debug: Veriyi logla
+      if (kDebugMode) {
+        print("API POST isteği: $path");
+        print("API veri: $data (${data?.runtimeType})");
+        if (data is Map) {
+          data.forEach((key, value) {
+            print("  $key: $value (${value.runtimeType})");
+          });
+        }
+      }
+      
       return await dio.post(
         path,
         data: data,
@@ -112,6 +124,9 @@ class ApiService {
         options: options,
       );
     } catch (e) {
+      if (kDebugMode) {
+        print("API POST hatası: $e");
+      }
       rethrow;
     }
   }

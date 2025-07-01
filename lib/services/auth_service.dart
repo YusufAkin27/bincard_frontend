@@ -21,7 +21,7 @@ class AuthService {
   final BiometricService _biometricService = BiometricService();
   
   // API Endpoint
-  static const String baseUrl = 'http://192.168.219.61:8080/v1/api';
+  static const String baseUrl = 'http://192.168.174.214:8080/v1/api';
 
   // SharedPreferences Keys
   static const String tokenKey = 'auth_token';
@@ -307,37 +307,32 @@ class AuthService {
   // Çıkış yap
   Future<ResponseMessage> logout() async {
     try {
-      // Kullanıcıyı logout et
-      final response = await _apiService.post(
-        '/auth/logout',
+      final accessToken = await _secureStorage.getAccessToken();
+      final refreshToken = await _secureStorage.getRefreshToken();
+      // API'ye logout isteği at
+      final response = await Dio().get(
+        'http://192.168.174.214:8080/v1/api/auth/logout',
         options: Options(
           headers: {
-            'Authorization': 'Bearer ${await _secureStorage.getAccessToken()}',
+            if (accessToken != null) 'Authorization': 'Bearer $accessToken',
           },
         ),
       );
-
-      // Tüm yerel depolanmış verileri temizle
+      // Token'ları ve diğer verileri temizle
       await _secureStorage.clearAll();
-      
-      // Biyometrik ayarı sıfırla
       await _biometricService.disableBiometricAuthentication();
-
-      if (response.statusCode == 200) {
-        return ResponseMessage.fromJson(response.data);
-      } else {
-        // API çağrısı başarısız olsa bile, yerel verileri temizledik
-        return ResponseMessage(
-          success: true,
-          message: 'Çıkış yapıldı, ancak sunucu yanıtı alınamadı.',
-        );
-      }
+      return ResponseMessage(
+        success: true,
+        message: 'Çıkış yapıldı, login sayfasına yönlendiriliyorsunuz.',
+      );
     } catch (e) {
-      // Hata olsa bile, yerel verileri temizledik
+      // Hata olsa bile, token'ları temizle
+      await _secureStorage.clearAll();
+      await _biometricService.disableBiometricAuthentication();
       debugPrint('Logout hatası: $e');
       return ResponseMessage(
         success: true,
-        message: 'Çıkış yapıldı, ancak bir hata oluştu: $e',
+        message: 'Çıkış yapıldı, login sayfasına yönlendiriliyorsunuz.',
       );
     }
   }
@@ -496,7 +491,7 @@ class AuthService {
   }
 
   // Telefon numarası doğrulama kodu kontrolü (TokenResponseDTO ile)
-  Future<String> verifyPhoneNumber(String code) async {
+  Future<String> verifyPhoneNumber(int code) async {
     try {
       final response = await _apiService.post(
         '/user/verify/phone',

@@ -14,6 +14,7 @@ import 'package:jwt_decoder/jwt_decoder.dart';
 import 'services/auth_service.dart';
 import 'services/user_service.dart';
 import 'dart:async';
+import 'services/secure_storage_service.dart';
 
 // Global navigatorKey - token service gibi servislerden sayfalar arası geçiş için
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -22,10 +23,12 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 const List<String> tokenExemptRoutes = [
   '/login',
   '/register',
+  '/signup',
   '/forgot-password',
-  '/verification',
-  '/reset-password',
+  '/forgot-password-sms-verify',
   '/login-sms-verify',
+  '/reset-password',
+  '/verification',
 ];
 
 // Mevcut route'un token kontrolünden muaf olup olmadığını kontrol et
@@ -201,11 +204,19 @@ class _SplashScreenState extends State<SplashScreen> {
 
       if (!mounted) return; // Widget'ın hala ağaçta olup olmadığını kontrol et
 
+      // Refresh token kontrolü
+      final secureStorage = SecureStorageService();
+      final refreshToken = await secureStorage.getRefreshToken();
+      if (refreshToken == null) {
+        // Refresh token yoksa direkt login sayfasına yönlendir
+        Navigator.pushReplacementNamed(context, '/login');
+        return;
+      }
+
       final authService = Provider.of<AuthService>(context, listen: false);
-      
       // Token kontrolü ve yenileme işlemi için zaman aşımı ekle
       final tokenValid = await authService.checkAndRefreshToken().timeout(
-        const Duration(seconds: 10), // 10 saniye zaman aşımı
+        const Duration(seconds: 10000000), // 10 saniye zaman aşımı
         onTimeout: () {
           debugPrint('Token kontrolü zaman aşımına uğradı, login sayfasına yönlendiriliyor...');
           return false; // Zaman aşımında token geçersiz kabul et

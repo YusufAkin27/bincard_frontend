@@ -118,6 +118,18 @@ class TokenDTO {
     required this.expiredAt,
   });
 
+  // Yardımcı fonksiyon: expiredAt hem int hem string olabilir
+  static DateTime _parseDate(dynamic value) {
+    if (value is int) {
+      // Saniye cinsinden timestamp ise
+      return DateTime.fromMillisecondsSinceEpoch(value * 1000);
+    } else if (value is String) {
+      return DateTime.parse(value);
+    } else {
+      throw Exception('expiredAt değeri tanınamadı: $value');
+    }
+  }
+
   factory TokenDTO.fromJson(dynamic json) {
     if (json is String) {
       return TokenDTO(
@@ -137,7 +149,7 @@ class TokenDTO {
     }
     return TokenDTO(
       token: token as String,
-      expiredAt: DateTime.parse(expiredAt as String),
+      expiredAt: _parseDate(expiredAt),
     );
   }
   
@@ -160,7 +172,7 @@ class TokenDTO {
     }
     return TokenDTO(
       token: token as String,
-      expiredAt: DateTime.parse(expiredAt as String),
+      expiredAt: _parseDate(expiredAt),
     );
   }
 

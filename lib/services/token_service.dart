@@ -32,7 +32,6 @@ class TokenService {
   
   // Login sayfasına yönlendirme metodu
   void _navigateToLogin() {
-    // BuildContext'e ihtiyaç duymadan global yönlendirme için
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (navigatorKey.currentContext != null) {
         debugPrint('Kullanıcı login sayfasına yönlendiriliyor...');
@@ -469,8 +468,17 @@ class TokenService {
       final accessToken = await _secureStorage.getAccessToken();
       final refreshToken = await _secureStorage.getRefreshToken();
       
-      if (accessToken == null || refreshToken == null) {
-        debugPrint('Token bulunamadı (Access: ${accessToken != null}, Refresh: ${refreshToken != null})');
+      // Eğer refresh token yoksa veya süresi dolmuşsa, tüm tokenları sil ve login sayfasına yönlendir
+      if (refreshToken == null || await isRefreshTokenExpired()) {
+        debugPrint('Refresh token yok veya süresi dolmuş, tüm tokenlar siliniyor ve login sayfasına yönlendiriliyor');
+        await _secureStorage.clearAll();
+        _navigateToLogin();
+        return false;
+      }
+      
+      if (accessToken == null) {
+        debugPrint('Access token yok, login sayfasına yönlendiriliyor');
+        _navigateToLogin();
         return false;
       }
       
@@ -489,6 +497,8 @@ class TokenService {
         
         if (isRefreshTokenExpired) {
           debugPrint('Refresh token süresi dolmuş, yeniden giriş gerekiyor');
+          await _secureStorage.clearAll();
+          _navigateToLogin();
           return false; // Her iki token da geçersiz
         }
         
@@ -497,10 +507,14 @@ class TokenService {
         return await refreshAccessToken();
       } catch (e) {
         debugPrint('JWT token decode hatası: $e');
+        await _secureStorage.clearAll();
+        _navigateToLogin();
         return false; // JWT decode hatası, güvenli tarafta kal
       }
     } catch (e) {
       debugPrint('Token kontrolü hatası: $e');
+      await _secureStorage.clearAll();
+      _navigateToLogin();
       return false; // Genel bir hata, güvenli tarafta kal
     }
   }

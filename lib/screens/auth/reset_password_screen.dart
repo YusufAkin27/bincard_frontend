@@ -60,7 +60,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       );
 
       if (response.statusCode == 200 && response.data != null) {
-        if (response.data['success'] == true) {
+        if (response.data is Map && response.data['success'] == true) {
           if (!mounted) return;
 
           ScaffoldMessenger.of(context).showSnackBar(
@@ -105,6 +105,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    print('Reset page loaded');
     return Scaffold(
       appBar: AppBar(
         title: const Text('Şifre Sıfırlama'),

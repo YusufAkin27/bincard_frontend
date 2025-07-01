@@ -61,69 +61,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _logout() async {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Çıkış Yap'),
-        content: const Text('Hesabınızdan çıkış yapmak istediğinize emin misiniz?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('İptal'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              
-              // Yükleniyor göstergesi göster
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Çıkış yapılıyor...'),
-                    duration: Duration(seconds: 1),
-                  ),
-                );
-              }
-              
-              try {
-                // Sadece tokenları temizle, API isteği gönderme
-                await _authService.clearTokens();
-                
-                if (mounted) {
-                  // Başarılı çıkış mesajı
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Başarıyla çıkış yapıldı'),
-                      backgroundColor: Colors.green,
-                      duration: Duration(seconds: 1),
-                    ),
-                  );
-                  
-                  // Login sayfasına yönlendir ve tüm yığını temizle
-                  Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-                }
-              } catch (e) {
-                debugPrint('Token temizleme hatası: $e');
-                
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Çıkış yapılırken bir hata oluştu: $e'),
-                      backgroundColor: Colors.red,
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                  
-                  // Login sayfasına yönlendir ve tüm yığını temizle
-                  Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-                }
-              }
-            },
-            child: const Text('Çıkış Yap', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
+    // Kullanıcıyı doğrudan login sayfasına yönlendir
+    if (mounted) {
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+    }
+    // Eğer arka planda token silme veya API logout işlemi yapılacaksa, onları burada başlatabilirsin
+    try {
+      await _authService.logout();
+    } catch (e) {
+      debugPrint('Çıkış hatası: $e');
+    }
   }
 
   @override
