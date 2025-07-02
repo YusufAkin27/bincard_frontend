@@ -99,9 +99,9 @@ class _RegisterScreenState extends State<RegisterScreen>
         final password = _passwordController.text.trim();
 
         // Telefon numarası doğru formatta mı kontrol et
-        if (phoneNumber.length != 13) {
+        if (phoneNumber.length != 10) {
           setState(() {
-            _errorMessage = 'Telefon numarası 13 haneli olmalıdır';
+            _errorMessage = 'Telefon numarası 10 haneli olmalıdır';
             _isLoading = false;
           });
           return;

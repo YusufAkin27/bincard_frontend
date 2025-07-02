@@ -1,12 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import '../constants/api_constants.dart';
 import 'token_service.dart';
 
 class ApiService {
   late Dio _dio;
-  
-  // API endpoint'i
-  static const String baseUrl = 'http://192.168.174.214:8080/v1/api';
   
   // Singleton pattern
   static final ApiService _instance = ApiService._internal();
@@ -21,9 +19,9 @@ class ApiService {
 
   void _initializeDio() {
     _dio = Dio(BaseOptions(
-      baseUrl: baseUrl,
-      connectTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 30),
+      baseUrl: ApiConstants.baseUrl,
+      connectTimeout: ApiConstants.connectTimeout,
+      receiveTimeout: ApiConstants.receiveTimeout,
       contentType: 'application/json',
       responseType: ResponseType.json,
     ));
@@ -72,9 +70,9 @@ class ApiService {
   Dio get loginDio {
     // Yeni bir Dio instance'ı oluştur (interceptor'sız)
     final loginDio = Dio(BaseOptions(
-      baseUrl: baseUrl,
-      connectTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 30),
+      baseUrl: ApiConstants.baseUrl,
+      connectTimeout: ApiConstants.connectTimeout,
+      receiveTimeout: ApiConstants.receiveTimeout,
       contentType: 'application/json',
       responseType: ResponseType.json,
     ));
