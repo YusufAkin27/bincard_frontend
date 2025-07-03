@@ -2,13 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/app_theme.dart';
 import '../../services/auth_service.dart';
-import '../../models/auth_model.dart';
-import 'login_screen.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'verification_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({Key? key}) : super(key: key);
+  const RegisterScreen({super.key});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();

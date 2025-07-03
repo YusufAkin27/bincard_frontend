@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import '../../theme/app_theme.dart';
 import '../../services/auth_service.dart';
 import '../../services/biometric_service.dart';
-import '../../models/auth_model.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
 import '../../screens/home_screen.dart';
@@ -17,7 +16,7 @@ const String kSavedPhoneKey = 'saved_phone';
 const String kRememberMeKey = 'remember_me';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -54,6 +53,7 @@ class _LoginScreenState extends State<LoginScreen>
   bool _hasRefreshToken = false;  // Refresh token var mı?
   int _biometricAttempts = 0;     // Biyometrik deneme sayısı
   final int _maxBiometricAttempts = 3; // Maksimum deneme hakkı
+  String? _userName; // Kullanıcı adı
 
   @override
   void initState() {
@@ -96,6 +96,11 @@ class _LoginScreenState extends State<LoginScreen>
       // Biyometrik doğrulama kontrolü
       await _checkBiometricAvailability();
       
+      // Kullanıcı adını al
+      if (_hasRefreshToken) {
+        await _loadUserInfo();
+      }
+      
       // Animasyonu başlat
       if (mounted) {
         _animationController.forward();
@@ -112,7 +117,7 @@ class _LoginScreenState extends State<LoginScreen>
       debugPrint('Başlangıç hatası: $e');
     }
   }
-
+  
   void _loadSavedCredentials() {
     if (_prefs == null) return;
     
@@ -219,17 +224,54 @@ class _LoginScreenState extends State<LoginScreen>
       });
 
       try {
-        // Telefon numarası formatını düzenle (maskeden sadece rakamları al)
-        final phoneNumber = phoneMaskFormatter.getUnmaskedText();
+        // Şifreyi al
         final password = _passwordController.text.trim();
 
-       
+        // Access token ve refresh token kontrolü
+        final secureStorage = SecureStorageService();
+        final refreshToken = await secureStorage.getRefreshToken();
+        
+        // Eğer refresh token varsa, refreshLogin kullan
+        if (refreshToken != null) {
+          try {
+            debugPrint('Refresh token var, refreshLogin deneniyor...');
+            
+            try {
+              // AuthService üzerinden refresh-login işlemini çağır
+              final tokenResponse = await _authService.refreshLogin(password);
+              
+              debugPrint('RefreshLogin yanıtı alındı: accessToken=${tokenResponse.accessToken.token}');
+              // Başarılı giriş - ana sayfaya yönlendir
+              debugPrint('RefreshLogin başarılı, ana sayfaya yönlendiriliyor...');
+              if (!mounted) return;
+              _navigateToHome();
+              return;
+            } catch (e) {
+              debugPrint('RefreshLogin başarısız: $e');
+              rethrow;
+            }
+          } catch (e) {
+            debugPrint('RefreshLogin başarısız, normal giriş deneniyor: $e');
+            setState(() {
+              _errorMessage = e.toString().replaceFirst('Exception: ', '');
+            });
+            // RefreshLogin başarısız olursa, hata mesajını göster ve işlemi sonlandır
+            setState(() {
+              _isLoading = false;
+            });
+            return;
+          }
+        }
+
+        // Eğer refresh token yoksa, normal giriş yap
+        // Telefon numarası formatını düzenle (maskeden sadece rakamları al)
+        final phoneNumber = phoneMaskFormatter.getUnmaskedText();
 
         // Kullanıcı bilgilerini kaydet
         await _saveCredentials();
 
-        // Auth servisi ile giriş yapma
-        debugPrint('Giriş işlemi başlatılıyor. Telefon: $phoneNumber');
+        // Auth servisi ile normal giriş yapma
+        debugPrint('Normal giriş işlemi başlatılıyor. Telefon: $phoneNumber');
         try {
           final response = await _authService.login(phoneNumber, password);
           debugPrint('Giriş yanıtı alındı: accessToken=${response.accessToken.token}');
@@ -501,21 +543,58 @@ class _LoginScreenState extends State<LoginScreen>
           ),
         ),
         const SizedBox(height: 24),
-        Text(
-          'Şehir Kartıma Hoş Geldiniz',
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            shadows: [
-              Shadow(
-                color: Colors.black.withOpacity(0.2),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
+        if (_hasRefreshToken && _userName != null) ...[
+          // Kullanıcı adı ile selamlama mesajı
+          Text(
+            '${_getGreetingMessage()}, $_userName',
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              shadows: [
+                Shadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            textAlign: TextAlign.center,
           ),
-          textAlign: TextAlign.center,
-        ),
+          const SizedBox(height: 8),
+          Text(
+            'Tekrar hoş geldiniz',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.white.withOpacity(0.9),
+              fontWeight: FontWeight.w500,
+              shadows: [
+                Shadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 2,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ] else ...[
+          // Standart karşılama mesajı
+          Text(
+            'Şehir Kartıma Hoş Geldiniz',
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              shadows: [
+                Shadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ],
     );
   }
@@ -547,7 +626,9 @@ class _LoginScreenState extends State<LoginScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            'Lütfen bilgilerinizi girin',
+            _hasRefreshToken 
+                ? 'Şifrenizi girerek devam edin' 
+                : 'Lütfen bilgilerinizi girin',
             style: TextStyle(fontSize: 14, color: AppTheme.textSecondaryColor),
           ),
           const SizedBox(height: 24),
@@ -858,7 +939,13 @@ class _LoginScreenState extends State<LoginScreen>
   Future<void> _checkAndStartBiometricLogin() async {
     if (_isInitialized && _hasRefreshToken && _canUseBiometrics && !_isLoading && mounted) {
       debugPrint('Biyometrik giriş otomatik olarak başlatılıyor...');
-      await _loginWithBiometrics();
+      
+      // Kısa bir gecikme ekleyerek UI'ın tamamen yüklenmesini bekleyelim
+      await Future.delayed(const Duration(milliseconds: 300));
+      
+      if (mounted) {
+        await _loginWithBiometrics();
+      }
     }
   }
 
@@ -876,12 +963,28 @@ class _LoginScreenState extends State<LoginScreen>
       debugPrint('Biyometrik giriş için gerekli koşullar sağlanıyor. Biyometrik prompt gösterilecek...');
       
       // Biraz bekleyelim, UI'ın tam yüklenmesi için
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 800));
       
       if (mounted) {
         // Biyometrik deneme sayacını sıfırla
         _biometricAttempts = 0;
-        _showBiometricPrompt();
+        
+        try {
+          // Access token kontrolü yap
+          final secureStorage = SecureStorageService();
+          final accessToken = await secureStorage.getAccessToken();
+          
+          // Eğer access token yoksa, biyometrik girişi dene
+          if (accessToken == null) {
+            _showBiometricPrompt();
+          } else {
+            // Access token varsa, doğrudan ana sayfaya yönlendir
+            _navigateToHome();
+          }
+        } catch (e) {
+          debugPrint('Access token kontrolü sırasında hata: $e');
+          _showBiometricPrompt();
+        }
       }
     } else {
       debugPrint('Biyometrik giriş için gerekli koşullar sağlanmıyor.');
@@ -964,6 +1067,38 @@ class _LoginScreenState extends State<LoginScreen>
           }
         });
       }
+    }
+  }
+
+  // Kullanıcı bilgilerini yükle
+  Future<void> _loadUserInfo() async {
+    try {
+      final secureStorage = SecureStorageService();
+      final firstName = await secureStorage.getUserFirstName();
+      
+      if (firstName != null && mounted) {
+        setState(() {
+          _userName = firstName;
+        });
+        debugPrint('Kullanıcı adı yüklendi: $_userName');
+      }
+    } catch (e) {
+      debugPrint('Kullanıcı bilgileri yüklenirken hata: $e');
+    }
+  }
+  
+  // Zaman dilimine göre selamlama mesajı oluştur
+  String _getGreetingMessage() {
+    final hour = DateTime.now().hour;
+    
+    if (hour >= 5 && hour < 12) {
+      return 'Günaydın';
+    } else if (hour >= 12 && hour < 18) {
+      return 'İyi Günler';
+    } else if (hour >= 18 && hour < 22) {
+      return 'İyi Akşamlar';
+    } else {
+      return 'İyi Geceler';
     }
   }
 }

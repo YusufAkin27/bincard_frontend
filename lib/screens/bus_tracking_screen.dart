@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import '../theme/app_theme.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'map_screen.dart';
 import 'qr_code_screen.dart';
 
 class BusTrackingScreen extends StatefulWidget {
   final String? busNumber;
 
-  const BusTrackingScreen({Key? key, this.busNumber}) : super(key: key);
+  const BusTrackingScreen({super.key, this.busNumber});
 
   @override
   State<BusTrackingScreen> createState() => _BusTrackingScreenState();

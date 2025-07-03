@@ -4,9 +4,10 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import '../services/user_service.dart';
 import '../models/user_model.dart';
+import '../services/secure_storage_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
-  const EditProfileScreen({Key? key}) : super(key: key);
+  const EditProfileScreen({super.key});
 
   @override
   State<EditProfileScreen> createState() => _EditProfileScreenState();
@@ -132,13 +133,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         if (mounted) {
           final success = response.success;
           if (success) {
+            // Update was successful, save user name and surname to secure storage
+            final secureStorage = SecureStorageService();
+            await secureStorage.setUserFirstName(_nameController.text);
+            await secureStorage.setUserLastName(_surnameController.text);
+            debugPrint('Kullanıcı adı ve soyadı güncellendi ve SecureStorage\'a kaydedildi');
+            
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('Profiliniz başarıyla güncellendi.'),
                 backgroundColor: AppTheme.successColor,
               ),
             );
-            Navigator.pop(context);
+            Navigator.pop(context, true); // Pass true to indicate update was successful
           } else {
             setState(() {
               _errorMessage = 'Profil güncellenirken bir hata oluştu.';
@@ -670,4 +677,4 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       ),
     );
   }
-} 
+}

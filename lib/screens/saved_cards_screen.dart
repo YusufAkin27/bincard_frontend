@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
-import '../constants/app_constants.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'dart:math' as math;
 
 class SavedCardsScreen extends StatefulWidget {
-  const SavedCardsScreen({Key? key}) : super(key: key);
+  const SavedCardsScreen({super.key});
 
   @override
   State<SavedCardsScreen> createState() => _SavedCardsScreenState();

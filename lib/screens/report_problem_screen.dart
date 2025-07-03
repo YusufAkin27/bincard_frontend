@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'dart:io';
 
 class ReportProblemScreen extends StatefulWidget {
   final String? busNumber;
   final String? busRoute;
 
-  const ReportProblemScreen({Key? key, this.busNumber, this.busRoute})
-    : super(key: key);
+  const ReportProblemScreen({super.key, this.busNumber, this.busRoute});
 
   @override
   State<ReportProblemScreen> createState() => _ReportProblemScreenState();
@@ -24,7 +22,7 @@ class _ReportProblemScreenState extends State<ReportProblemScreen> {
   final TextEditingController _contactController = TextEditingController();
   DateTime? _problemDate;
   TimeOfDay? _problemTime;
-  List<File> _images = [];
+  final List<File> _images = [];
   bool _isSubmitting = false;
 
   final List<String> _problemTypes = [

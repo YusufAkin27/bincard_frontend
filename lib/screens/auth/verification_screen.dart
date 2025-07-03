@@ -14,10 +14,10 @@ class VerificationScreen extends StatefulWidget {
   final bool isPasswordReset;
 
   const VerificationScreen({
-    Key? key, 
+    super.key, 
     required this.phoneNumber,
     this.isPasswordReset = false
-  }) : super(key: key);
+  });
 
   @override
   State<VerificationScreen> createState() => _VerificationScreenState();

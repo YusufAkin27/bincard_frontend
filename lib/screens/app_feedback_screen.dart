@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'dart:io';
 
 class AppFeedbackScreen extends StatefulWidget {
-  const AppFeedbackScreen({Key? key}) : super(key: key);
+  const AppFeedbackScreen({super.key});
 
   @override
   State<AppFeedbackScreen> createState() => _AppFeedbackScreenState();

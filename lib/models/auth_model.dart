@@ -112,10 +112,20 @@ class ResponseMessage {
 class TokenDTO {
   final String token;
   final DateTime expiredAt;
+  final DateTime? issuedAt;
+  final DateTime? lastUsedAt;
+  final String? ipAddress;
+  final String? deviceInfo;
+  final String? tokenType;
 
   TokenDTO({
     required this.token,
     required this.expiredAt,
+    this.issuedAt,
+    this.lastUsedAt,
+    this.ipAddress,
+    this.deviceInfo,
+    this.tokenType,
   });
 
   // Yardımcı fonksiyon: expiredAt hem int hem string olabilir
@@ -143,13 +153,30 @@ class TokenDTO {
     }
     
     final token = json['token'];
-    final expiredAt = json['expiredAt'] ?? json['expiresAt'];
+    final expiredAt = json['expiredAt'] ?? json['expiresAt']; // Java'da expiresAt
     if (token == null || expiredAt == null) {
       throw Exception('TokenDTO parse error: token or expiredAt/expiresAt is null! Backend response: \\${json.toString()}');
     }
+    
+    // Parse additional fields
+    DateTime? issuedAt;
+    if (json['issuedAt'] != null) {
+      issuedAt = _parseDate(json['issuedAt']);
+    }
+    
+    DateTime? lastUsedAt;
+    if (json['lastUsedAt'] != null) {
+      lastUsedAt = _parseDate(json['lastUsedAt']);
+    }
+    
     return TokenDTO(
       token: token as String,
       expiredAt: _parseDate(expiredAt),
+      issuedAt: issuedAt,
+      lastUsedAt: lastUsedAt,
+      ipAddress: json['ipAddress']?.toString(),
+      deviceInfo: json['deviceInfo']?.toString(),
+      tokenType: json['tokenType']?.toString(),
     );
   }
   
@@ -180,6 +207,11 @@ class TokenDTO {
     return {
       'token': token,
       'expiredAt': expiredAt.toIso8601String(),
+      if (issuedAt != null) 'issuedAt': issuedAt!.toIso8601String(),
+      if (lastUsedAt != null) 'lastUsedAt': lastUsedAt!.toIso8601String(),
+      if (ipAddress != null) 'ipAddress': ipAddress,
+      if (deviceInfo != null) 'deviceInfo': deviceInfo,
+      if (tokenType != null) 'tokenType': tokenType,
     };
   }
   
@@ -218,20 +250,35 @@ class TokenResponseDTO {
       // accessToken ve refreshToken string olarak gelirse de işle
       final accessTokenRaw = json['accessToken'];
       final refreshTokenRaw = json['refreshToken'];
+      
+      // API response format kontrolü
+      if (accessTokenRaw == null || refreshTokenRaw == null) {
+        throw Exception('Token response error: accessToken or refreshToken is null! Backend response: \\${json.toString()}');
+      }
+      
+      // Token nesneleri oluştur (hem string hem de obje formatını destekle)
       final accessToken = accessTokenRaw is String
-          ? TokenDTO.fromSimpleJson({'token': accessTokenRaw, 'expiredAt': DateTime.now().add(const Duration(hours: 1)).toIso8601String()})
+          ? TokenDTO(
+              token: accessTokenRaw,
+              expiredAt: DateTime.now().add(const Duration(hours: 1)), // Varsayılan süre
+            )
           : TokenDTO.fromJson(accessTokenRaw);
+          
       final refreshToken = refreshTokenRaw is String
-          ? TokenDTO.fromSimpleJson({'token': refreshTokenRaw, 'expiredAt': DateTime.now().add(const Duration(hours: 1)).toIso8601String()})
+          ? TokenDTO(
+              token: refreshTokenRaw,
+              expiredAt: DateTime.now().add(const Duration(days: 30)), // Varsayılan süre
+            )
           : TokenDTO.fromJson(refreshTokenRaw);
+          
       return TokenResponseDTO(
         accessToken: accessToken,
         refreshToken: refreshToken,
       );
     } catch (e) {
       // Alternatif format deneme
-      if (json.containsKey('token') && json.containsKey('expiredAt')) {
-        final token = TokenDTO.fromSimpleJson(json);
+      if (json.containsKey('token') && (json.containsKey('expiredAt') || json.containsKey('expiresAt'))) {
+        final token = TokenDTO.fromJson(json);
         return TokenResponseDTO(
           accessToken: token,
           refreshToken: token,

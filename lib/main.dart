@@ -2,15 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'constants/app_constants.dart';
-import 'screens/home_screen.dart';
-import 'screens/auth/login_screen.dart';
 import 'theme/app_theme.dart';
 import 'services/theme_service.dart';
 import 'services/language_service.dart';
 import 'routes.dart';
 import 'services/api_service.dart';
-import 'services/token_service.dart';
-import 'package:jwt_decoder/jwt_decoder.dart';
 import 'services/auth_service.dart';
 import 'services/user_service.dart';
 import 'dart:async';
@@ -19,16 +15,38 @@ import 'services/secure_storage_service.dart';
 // Global navigatorKey - token service gibi servislerden sayfalar arası geçiş için
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
+// Route observer for debugging
+class DebugRouteObserver extends RouteObserver<PageRoute<dynamic>> {
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didPush(route, previousRoute);
+    debugPrint('🔄 Route PUSH: ${route.settings.name} (from: ${previousRoute?.settings.name})');
+  }
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
+    debugPrint('🔄 Route REPLACE: ${newRoute?.settings.name} (replaced: ${oldRoute?.settings.name})');
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didPop(route, previousRoute);
+    debugPrint('🔄 Route POP: ${route.settings.name} (back to: ${previousRoute?.settings.name})');
+  }
+}
+
 // Token kontrolünden muaf tutulacak sayfaların route isimleri
 const List<String> tokenExemptRoutes = [
-  '/login',
-  '/register',
-  '/signup',
-  '/forgot-password',
-  '/forgot-password-sms-verify',
-  '/login-sms-verify',
-  '/reset-password',
-  '/verification',
+  AppRoutes.login,
+  AppRoutes.refreshLogin,
+  AppRoutes.register,
+  AppRoutes.forgotPassword,
+  AppRoutes.forgotPasswordSmsVerify,
+  AppRoutes.loginSmsVerify,
+  AppRoutes.resetPassword,
+  AppRoutes.verification,
+  '/splash',
 ];
 
 // Mevcut route'un token kontrolünden muaf olup olmadığını kontrol et
@@ -109,12 +127,13 @@ void main() async {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Periyodik token kontrolü başlat (5 dakikada bir)
+    // Periyodik token kontrolü başlat (5 dakikada bir) - Geçici olarak devre dışı
     startPeriodicTokenCheck(context);
+    debugPrint('⚠️ Periodic token check geçici olarak devre dışı bırakıldı');
     
     return Consumer2<ThemeService, LanguageService>(
       builder: (context, themeService, languageService, child) {
@@ -122,6 +141,10 @@ class MyApp extends StatelessWidget {
           title: 'BinCard',
           debugShowCheckedModeBanner: false,
           navigatorKey: navigatorKey,
+          navigatorObservers: [
+            // Route değişikliklerini log'la
+            DebugRouteObserver(),
+          ],
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: themeService.themeMode,
@@ -160,16 +183,43 @@ class MyApp extends StatelessWidget {
         return;
       }
       
+      // Refresh login sayfasındaysak, token kontrolü yapma
+      if (currentRoute == AppRoutes.refreshLogin) {
+        debugPrint('Refresh login sayfasında, periyodik token kontrolü atlanıyor');
+        return;
+      }
+      
       debugPrint('Periyodik token kontrolü çalışıyor...');
       try {
         final authService = AuthService();
+        final secureStorage = SecureStorageService();
+        
+        // Access token kontrolü
         final isValid = await authService.checkAndRefreshToken();
         
         if (!isValid) {
-          debugPrint('Token geçersiz, kullanıcı login sayfasına yönlendiriliyor');
-          // Login sayfasına yönlendir
+          // Refresh token kontrolü
+          final refreshToken = await secureStorage.getRefreshToken();
+          final refreshTokenExpiry = await secureStorage.getRefreshTokenExpiry();
+          
+          bool refreshTokenValid = false;
+          if (refreshToken != null && refreshTokenExpiry != null) {
+            final expiry = DateTime.parse(refreshTokenExpiry);
+            refreshTokenValid = DateTime.now().isBefore(expiry);
+          }
+          
           if (navigatorKey.currentContext != null) {
-            Navigator.of(navigatorKey.currentContext!).pushNamedAndRemoveUntil('/login', (route) => false);
+            if (refreshTokenValid) {
+              // Refresh token geçerliyse refresh login sayfasına yönlendir
+              debugPrint('Access token geçersiz, refresh token geçerli, refresh login sayfasına yönlendiriliyor');
+              Navigator.of(navigatorKey.currentContext!).pushNamedAndRemoveUntil(
+                AppRoutes.refreshLogin, (route) => false);
+            } else {
+              // Refresh token da geçersizse login sayfasına yönlendir
+              debugPrint('Token ve refresh token geçersiz, login sayfasına yönlendiriliyor');
+              Navigator.of(navigatorKey.currentContext!).pushNamedAndRemoveUntil(
+                AppRoutes.login, (route) => false);
+            }
           }
         } else {
           debugPrint('Token kontrolü başarılı, oturum aktif');
@@ -182,7 +232,7 @@ class MyApp extends StatelessWidget {
 }
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({Key? key}) : super(key: key);
+  const SplashScreen({super.key});
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -204,21 +254,67 @@ class _SplashScreenState extends State<SplashScreen> {
 
       if (!mounted) return; // Widget'ın hala ağaçta olup olmadığını kontrol et
 
-      // Refresh token kontrolü
+      // Refresh token ve access token kontrolü
       final secureStorage = SecureStorageService();
       final refreshToken = await secureStorage.getRefreshToken();
-      if (refreshToken == null) {
-        // Refresh token yoksa direkt login sayfasına yönlendir
-        Navigator.pushReplacementNamed(context, '/login');
+      final refreshTokenExpiry = await secureStorage.getRefreshTokenExpiry();
+      final accessToken = await secureStorage.getAccessToken();
+
+      // Refresh token geçerlilik kontrolü
+      bool refreshTokenValid = false;
+      if (refreshToken != null && refreshTokenExpiry != null) {
+        final expiry = DateTime.parse(refreshTokenExpiry);
+        refreshTokenValid = DateTime.now().isBefore(expiry);
+        debugPrint('Refresh token geçerli mi: $refreshTokenValid, sona erme: $expiry');
+      }
+      
+      if (!refreshTokenValid || refreshToken == null) {
+        // Refresh token yoksa veya geçersizse direkt login sayfasına yönlendir
+        debugPrint('Refresh token yok veya geçersiz, login sayfasına yönlendiriliyor');
+        Navigator.pushReplacementNamed(context, AppRoutes.login);
+        return;
+      }
+      
+      if (accessToken == null) {
+        // Access token yok ama refresh token geçerliyse, önce backend'de geçerli mi kontrol et
+        debugPrint('Access token yok, refresh token\'ı backend\'de test ediliyor...');
+        
+        final authService = Provider.of<AuthService>(context, listen: false);
+        try {
+          // Dummy password ile test yapmak yerine, sadece refresh token'ın geçerliliğini kontrol et
+          // Bu, gerçek bir refresh login denemesi yapmadan token'ın backend'de var olup olmadığını kontrol eder
+          final tokenValid = await authService.checkAndRefreshToken().timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => false,
+          );
+          
+          if (tokenValid) {
+            debugPrint('Token geçerli, ana sayfaya yönlendiriliyor...');
+            Navigator.pushReplacementNamed(context, AppRoutes.home);
+          } else {
+            debugPrint('Refresh token backend\'de geçersiz, refresh login sayfasına yönlendiriliyor');
+            Navigator.pushReplacementNamed(context, AppRoutes.refreshLogin);
+          }
+        } catch (e) {
+          debugPrint('Token test hatası: $e');
+          // Eğer "Token bulunamadı" hatası alırsak, direkt login sayfasına yönlendir
+          if (e.toString().contains('Token bulunamadı') || e.toString().contains('Token not found')) {
+            debugPrint('Backend\'de token bulunamadı, tüm tokenler temizleniyor...');
+            await secureStorage.clearTokens();
+            Navigator.pushReplacementNamed(context, AppRoutes.login);
+          } else {
+            Navigator.pushReplacementNamed(context, AppRoutes.refreshLogin);
+          }
+        }
         return;
       }
 
       final authService = Provider.of<AuthService>(context, listen: false);
       // Token kontrolü ve yenileme işlemi için zaman aşımı ekle
       final tokenValid = await authService.checkAndRefreshToken().timeout(
-        const Duration(seconds: 10000000), // 10 saniye zaman aşımı
+        const Duration(seconds: 10), // 10 saniye zaman aşımı
         onTimeout: () {
-          debugPrint('Token kontrolü zaman aşımına uğradı, login sayfasına yönlendiriliyor...');
+          debugPrint('Token kontrolü zaman aşımına uğradı, refresh login sayfasına yönlendiriliyor...');
           return false; // Zaman aşımında token geçersiz kabul et
         },
       );
@@ -226,16 +322,23 @@ class _SplashScreenState extends State<SplashScreen> {
       if (mounted) {
         if (tokenValid) {
           debugPrint('Token geçerli, ana sayfaya yönlendiriliyor...');
-          Navigator.pushReplacementNamed(context, '/');
+          Navigator.pushReplacementNamed(context, AppRoutes.home);
         } else {
-          debugPrint('Token geçersiz veya kontrol edilemedi, login sayfasına yönlendiriliyor...');
-          Navigator.pushReplacementNamed(context, '/login');
+          // Token geçersiz ama refresh token geçerliyse, refresh login sayfasına yönlendir
+          if (refreshTokenValid) {
+            debugPrint('Token geçersiz, refresh login sayfasına yönlendiriliyor...');
+            Navigator.pushReplacementNamed(context, AppRoutes.refreshLogin);
+          } else {
+            debugPrint('Token ve refresh token geçersiz, login sayfasına yönlendiriliyor...');
+            Navigator.pushReplacementNamed(context, AppRoutes.login);
+          }
         }
       }
     } catch (e) {
       debugPrint('Splash ekranından yönlendirme hatası: $e');
       if (mounted) {
-        Navigator.pushReplacementNamed(context, '/login');
+        // Hata durumunda normal login sayfasına yönlendir
+        Navigator.pushReplacementNamed(context, AppRoutes.login);
       }
     }
   }

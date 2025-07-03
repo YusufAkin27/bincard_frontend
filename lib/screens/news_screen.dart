@@ -3,7 +3,7 @@ import '../theme/app_theme.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 class NewsScreen extends StatefulWidget {
-  const NewsScreen({Key? key}) : super(key: key);
+  const NewsScreen({super.key});
 
   @override
   State<NewsScreen> createState() => _NewsScreenState();
@@ -399,7 +399,7 @@ class _NewsScreenState extends State<NewsScreen>
 class NewsDetailScreen extends StatelessWidget {
   final Map<String, dynamic> news;
 
-  const NewsDetailScreen({Key? key, required this.news}) : super(key: key);
+  const NewsDetailScreen({super.key, required this.news});
 
   @override
   Widget build(BuildContext context) {

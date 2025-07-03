@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
-import '../constants/app_constants.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'dart:math' as math;
 import 'card_activities_screen.dart';
 import 'transfer_screen.dart';
 
 class WalletScreen extends StatefulWidget {
-  const WalletScreen({Key? key}) : super(key: key);
+  const WalletScreen({super.key});
 
   @override
   State<WalletScreen> createState() => _WalletScreenState();
@@ -893,7 +891,7 @@ class _WalletScreenState extends State<WalletScreen>
             ),
             ...transactionsForDate
                 .map((transaction) => _buildTransactionItem(transaction))
-                .toList(),
+                ,
             const SizedBox(height: 8),
           ],
         );

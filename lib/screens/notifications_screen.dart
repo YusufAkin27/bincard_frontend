@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
-import '../constants/app_constants.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 class NotificationsScreen extends StatefulWidget {
-  const NotificationsScreen({Key? key}) : super(key: key);
+  const NotificationsScreen({super.key});
 
   @override
   State<NotificationsScreen> createState() => _NotificationsScreenState();

@@ -17,6 +17,9 @@ class SecureStorageService {
   static const String _biometricEnabledKey = 'biometric_enabled';
   static const String _accessTokenExpiryKey = 'access_token_expiry';
   static const String _refreshTokenExpiryKey = 'refresh_token_expiry';
+  static const String _userFirstNameKey = 'user_first_name';
+  static const String _userLastNameKey = 'user_last_name';
+  static const String _userPhoneKey = 'user_phone'; // Telefon numarası için anahtar
 
   // Singleton pattern
   static final SecureStorageService _instance = SecureStorageService._internal();
@@ -46,7 +49,7 @@ class SecureStorageService {
   Future<String?> getRefreshToken() async {
     return await _secureStorage.read(key: _refreshTokenKey);
   }
-
+  
   // Kullanıcı bilgilerini kaydetme (JSON string olarak)
   Future<void> setUserData(String userJson) async {
     await _secureStorage.write(key: _userDataKey, value: userJson);
@@ -94,6 +97,11 @@ class SecureStorageService {
     return await _secureStorage.read(key: _accessTokenExpiryKey);
   }
   
+  // Sadece Access Token'ı silme
+  Future<void> clearAccessToken() async {
+    await _secureStorage.delete(key: _accessTokenKey);
+  }
+  
   // Refresh token expiry tarihini kaydet
   Future<void> setRefreshTokenExpiry(String expiryDate) async {
     await _secureStorage.write(key: _refreshTokenExpiryKey, value: expiryDate);
@@ -103,4 +111,34 @@ class SecureStorageService {
   Future<String?> getRefreshTokenExpiry() async {
     return await _secureStorage.read(key: _refreshTokenExpiryKey);
   }
-} 
+
+  // Kullanıcı adını kaydet
+  Future<void> setUserFirstName(String firstName) async {
+    await _secureStorage.write(key: _userFirstNameKey, value: firstName);
+  }
+  
+  // Kullanıcı adını al
+  Future<String?> getUserFirstName() async {
+    return await _secureStorage.read(key: _userFirstNameKey);
+  }
+  
+  // Kullanıcı soyadını kaydet
+  Future<void> setUserLastName(String lastName) async {
+    await _secureStorage.write(key: _userLastNameKey, value: lastName);
+  }
+  
+  // Kullanıcı soyadını al
+  Future<String?> getUserLastName() async {
+    return await _secureStorage.read(key: _userLastNameKey);
+  }
+  
+  // Kullanıcı telefon numarasını kaydet
+  Future<void> setUserPhone(String phone) async {
+    await _secureStorage.write(key: _userPhoneKey, value: phone);
+  }
+  
+  // Kullanıcı telefon numarasını al
+  Future<String?> getUserPhone() async {
+    return await _secureStorage.read(key: _userPhoneKey);
+  }
+}

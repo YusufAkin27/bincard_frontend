@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 
 class VirtualCardScreen extends StatefulWidget {
-  const VirtualCardScreen({Key? key}) : super(key: key);
+  const VirtualCardScreen({super.key});
 
   @override
   State<VirtualCardScreen> createState() => _VirtualCardScreenState();
@@ -537,9 +536,9 @@ class _VirtualCardScreenState extends State<VirtualCardScreen> {
   }
 
   void _showPurchaseCardDialog(BuildContext context) {
-    final TextEditingController _nameController = TextEditingController();
-    final TextEditingController _identityController = TextEditingController();
-    bool _acceptTerms = false;
+    final TextEditingController nameController = TextEditingController();
+    final TextEditingController identityController = TextEditingController();
+    bool acceptTerms = false;
 
     showDialog(
       context: context,
@@ -568,7 +567,7 @@ class _VirtualCardScreenState extends State<VirtualCardScreen> {
                       ),
                       const SizedBox(height: 16),
                       TextField(
-                        controller: _nameController,
+                        controller: nameController,
                         decoration: InputDecoration(
                           labelText: 'Ad Soyad',
                           border: OutlineInputBorder(
@@ -579,7 +578,7 @@ class _VirtualCardScreenState extends State<VirtualCardScreen> {
                       ),
                       const SizedBox(height: 12),
                       TextField(
-                        controller: _identityController,
+                        controller: identityController,
                         decoration: InputDecoration(
                           labelText: 'T.C. Kimlik No',
                           border: OutlineInputBorder(
@@ -598,10 +597,10 @@ class _VirtualCardScreenState extends State<VirtualCardScreen> {
                       Row(
                         children: [
                           Checkbox(
-                            value: _acceptTerms,
+                            value: acceptTerms,
                             onChanged: (value) {
                               setState(() {
-                                _acceptTerms = value!;
+                                acceptTerms = value!;
                               });
                             },
                             activeColor: AppTheme.primaryColor,
@@ -610,7 +609,7 @@ class _VirtualCardScreenState extends State<VirtualCardScreen> {
                             child: GestureDetector(
                               onTap: () {
                                 setState(() {
-                                  _acceptTerms = !_acceptTerms;
+                                  acceptTerms = !acceptTerms;
                                 });
                               },
                               child: Text(
@@ -639,9 +638,9 @@ class _VirtualCardScreenState extends State<VirtualCardScreen> {
                   ),
                   ElevatedButton(
                     onPressed:
-                        _acceptTerms &&
-                                _nameController.text.isNotEmpty &&
-                                _identityController.text.isNotEmpty
+                        acceptTerms &&
+                                nameController.text.isNotEmpty &&
+                                identityController.text.isNotEmpty
                             ? () {
                               Navigator.pop(context);
                               _showPurchaseSuccess(context);
@@ -694,7 +693,7 @@ class _VirtualCardScreenState extends State<VirtualCardScreen> {
   }
 
   void _showTopUpDialog(BuildContext context) {
-    final TextEditingController _amountController = TextEditingController();
+    final TextEditingController amountController = TextEditingController();
 
     showDialog(
       context: context,
@@ -720,7 +719,7 @@ class _VirtualCardScreenState extends State<VirtualCardScreen> {
                 ),
                 const SizedBox(height: 16),
                 TextField(
-                  controller: _amountController,
+                  controller: amountController,
                   decoration: InputDecoration(
                     labelText: 'Tutar',
                     border: OutlineInputBorder(
@@ -740,7 +739,7 @@ class _VirtualCardScreenState extends State<VirtualCardScreen> {
                       [50, 100, 200].map((amount) {
                         return InkWell(
                           onTap: () {
-                            _amountController.text = amount.toString();
+                            amountController.text = amount.toString();
                           },
                           child: Container(
                             padding: const EdgeInsets.symmetric(
@@ -776,7 +775,7 @@ class _VirtualCardScreenState extends State<VirtualCardScreen> {
               ),
               ElevatedButton(
                 onPressed: () {
-                  final amount = double.tryParse(_amountController.text);
+                  final amount = double.tryParse(amountController.text);
                   if (amount != null && amount > 0) {
                     Navigator.pop(context);
                     _showPaymentMethodsDialog(context, amount);
@@ -861,7 +860,7 @@ class _VirtualCardScreenState extends State<VirtualCardScreen> {
                         activeColor: AppTheme.primaryColor,
                         contentPadding: EdgeInsets.zero,
                       );
-                    }).toList(),
+                    }),
                   ],
                 ),
                 actions: [

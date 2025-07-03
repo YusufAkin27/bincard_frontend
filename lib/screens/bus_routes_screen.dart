@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'map_screen.dart';
 import 'bus_tracking_screen.dart';
 
 class BusRoutesScreen extends StatefulWidget {
-  const BusRoutesScreen({Key? key}) : super(key: key);
+  const BusRoutesScreen({super.key});
 
   @override
   State<BusRoutesScreen> createState() => _BusRoutesScreenState();
@@ -14,7 +13,7 @@ class BusRoutesScreen extends StatefulWidget {
 class _BusRoutesScreenState extends State<BusRoutesScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-  List<String> _favoriteRoutes = [];
+  final List<String> _favoriteRoutes = [];
 
   // Örnek otobüs seferleri listesi
   final List<Map<String, dynamic>> _routes = [

@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
-import '../constants/app_constants.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../services/nfc_service.dart';
 
 class AddBalanceScreen extends StatefulWidget {
-  const AddBalanceScreen({Key? key}) : super(key: key);
+  const AddBalanceScreen({super.key});
 
   @override
   State<AddBalanceScreen> createState() => _AddBalanceScreenState();

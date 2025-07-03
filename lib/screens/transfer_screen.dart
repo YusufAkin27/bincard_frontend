@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
-import '../constants/app_constants.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class TransferScreen extends StatefulWidget {
-  const TransferScreen({Key? key}) : super(key: key);
+  const TransferScreen({super.key});
 
   @override
   State<TransferScreen> createState() => _TransferScreenState();
@@ -181,7 +180,7 @@ class _TransferScreenState extends State<TransferScreen>
   }
 
   Widget _buildCardSelector() {
-    return Container(
+    return SizedBox(
       height: 200,
       child: PageView.builder(
         itemCount: _myCards.length,

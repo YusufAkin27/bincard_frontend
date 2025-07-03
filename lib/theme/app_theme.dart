@@ -174,7 +174,6 @@ class AppTheme {
       primary: primaryColor,
       secondary: accentColor,
       tertiary: accentColor,
-      background: const Color(0xFF1A202C),
       error: errorColor,
       surface: const Color(0xFF2D3748),
     ),

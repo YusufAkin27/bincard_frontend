@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
-import '../constants/app_constants.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'settings_screen.dart';
 import '../services/user_service.dart';
 import '../models/user_model.dart';
 import 'edit_profile_screen.dart';
 import '../services/auth_service.dart';
+import '../services/secure_storage_service.dart';
+import '../routes.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({Key? key}) : super(key: key);
+  const ProfileScreen({super.key});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -36,6 +36,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     try {
       final userProfile = await _userService.getUserProfile();
+      
+      // Save user name and surname to secure storage for use in refresh login screen
+      final secureStorage = SecureStorageService();
+      if (userProfile.name != null) {
+        await secureStorage.setUserFirstName(userProfile.name!);
+      }
+      if (userProfile.surname != null) {
+        await secureStorage.setUserLastName(userProfile.surname!);
+      }
+      
       setState(() {
         _userProfile = userProfile;
         _isLoading = false;
@@ -61,15 +71,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _logout() async {
-    // Kullanıcıyı doğrudan login sayfasına yönlendir
-    if (mounted) {
-      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-    }
-    // Eğer arka planda token silme veya API logout işlemi yapılacaksa, onları burada başlatabilirsin
     try {
-      await _authService.logout();
+      // Logout servisi çağrılıyor
+      final response = await _authService.logout();
+      
+      // Refresh token'ın geçerliliğini kontrol et
+      final secureStorage = SecureStorageService();
+      final refreshToken = await secureStorage.getRefreshToken();
+      final refreshTokenExpiry = await secureStorage.getRefreshTokenExpiry();
+      
+      bool refreshTokenValid = false;
+      if (refreshToken != null && refreshTokenExpiry != null) {
+        final expiry = DateTime.parse(refreshTokenExpiry);
+        refreshTokenValid = DateTime.now().isBefore(expiry);
+      }
+      
+      // Yönlendirme işlemi
+      if (mounted) {
+        if (refreshTokenValid) {
+          // Refresh token geçerliyse, refresh login sayfasına yönlendir
+          debugPrint('Refresh token geçerli, refresh login sayfasına yönlendiriliyor');
+          Navigator.pushNamedAndRemoveUntil(context, AppRoutes.refreshLogin, (route) => false);
+        } else {
+          // Refresh token geçersizse, normal login sayfasına yönlendir
+          debugPrint('Refresh token geçersiz, login sayfasına yönlendiriliyor');
+          Navigator.pushNamedAndRemoveUntil(context, AppRoutes.login, (route) => false);
+        }
+      }
     } catch (e) {
-      debugPrint('Çıkış hatası: $e');
+      debugPrint('Logout işlemi sırasında hata: $e');
+      // Hata durumunda yine de login sayfasına yönlendir
+      if (mounted) {
+        Navigator.pushNamedAndRemoveUntil(context, AppRoutes.login, (route) => false);
+      }
     }
   }
 

@@ -4,16 +4,14 @@ import '../theme/app_theme.dart';
 import '../constants/app_constants.dart';
 import '../services/theme_service.dart';
 import '../services/language_service.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'change_password_screen.dart';
-import 'edit_profile_screen.dart';
 import 'privacy_settings_screen.dart';
 import 'terms_of_service_screen.dart';
 import 'privacy_policy_screen.dart';
 import '../services/biometric_service.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({Key? key}) : super(key: key);
+  const SettingsScreen({super.key});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();

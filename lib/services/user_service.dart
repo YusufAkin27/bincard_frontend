@@ -155,7 +155,20 @@ class UserService {
       
       if (response.statusCode == 200 && response.data != null) {
         debugPrint('Profil bilgileri başarıyla alındı: ${response.data}');
-        return UserProfile.fromJson(response.data);
+        final userProfile = UserProfile.fromJson(response.data);
+        
+        // Kullanıcı adını ve soyadını SecureStorage'a kaydet
+        if (userProfile.name != null) {
+          await _secureStorage.setUserFirstName(userProfile.name!);
+          debugPrint('Kullanıcı adı SecureStorage\'a kaydedildi: ${userProfile.name}');
+        }
+        
+        if (userProfile.surname != null) {
+          await _secureStorage.setUserLastName(userProfile.surname!);
+          debugPrint('Kullanıcı soyadı SecureStorage\'a kaydedildi: ${userProfile.surname}');
+        }
+        
+        return userProfile;
       } else {
         throw Exception('Profil bilgileri alınamadı');
       }
@@ -205,12 +218,25 @@ class UserService {
       
       if (response.statusCode == 200 && response.data != null) {
         debugPrint('Profil bilgileri başarıyla alındı: ${response.data}');
-        return UserProfile.fromJson(response.data);
+        final userProfile = UserProfile.fromJson(response.data);
+        
+        // Kullanıcı adını ve soyadını SecureStorage'a kaydet
+        if (userProfile.name != null) {
+          await _secureStorage.setUserFirstName(userProfile.name!);
+          debugPrint('Kullanıcı adı SecureStorage\'a kaydedildi: ${userProfile.name}');
+        }
+        
+        if (userProfile.surname != null) {
+          await _secureStorage.setUserLastName(userProfile.surname!);
+          debugPrint('Kullanıcı soyadı SecureStorage\'a kaydedildi: ${userProfile.surname}');
+        }
+        
+        return userProfile;
       } else {
         throw Exception('Profil bilgileri alınamadı');
       }
     } catch (e) {
-      debugPrint('Profil bilgilerini yeniden getirme hatası: $e');
+      debugPrint('Profil bilgileri yeniden getirme hatası: $e');
       throw Exception('Profil bilgileri alınamadı: $e');
     }
   }
@@ -292,4 +318,4 @@ class UpdateUserRequest {
     if (email != null) data['email'] = email;
     return data;
   }
-} 
+}

@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'bus_routes_screen.dart';
-import 'bus_tracking_screen.dart';
 import 'saved_cards_screen.dart';
 import 'qr_code_screen.dart';
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({Key? key}) : super(key: key);
+  const SearchScreen({super.key});
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();

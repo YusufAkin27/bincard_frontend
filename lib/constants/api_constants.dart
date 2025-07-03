@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 
 class ApiConstants {
   // Base URL for API requests
@@ -18,6 +17,8 @@ class ApiConstants {
   static String get resendCodeEndpoint => '/auth/resend-code';
   static String get forgotPasswordEndpoint => '/auth/forgot-password';
   static String get resetPasswordEndpoint => '/auth/reset-password';
+  static String get refreshLoginEndpoint => '/auth/refresh-login';
+  static String get refreshLogin => '/auth/refresh-login'; // Backward compatibility
   
   // User endpoints
   static String get userProfileEndpoint => '/user/profile';

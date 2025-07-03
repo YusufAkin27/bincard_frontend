@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
-import '../constants/app_constants.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'dart:math' as math;
 import 'dart:async';
 
 class QRCodeScreen extends StatefulWidget {
@@ -11,11 +8,11 @@ class QRCodeScreen extends StatefulWidget {
   final String? cardName;
 
   const QRCodeScreen({
-    Key? key,
+    super.key,
     this.isScanner = true,
     this.cardNumber,
     this.cardName,
-  }) : super(key: key);
+  });
 
   @override
   State<QRCodeScreen> createState() => _QRCodeScreenState();
@@ -24,8 +21,8 @@ class QRCodeScreen extends StatefulWidget {
 class _QRCodeScreenState extends State<QRCodeScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  bool _flashOn = false;
-  bool _isFrontCamera = false;
+  final bool _flashOn = false;
+  final bool _isFrontCamera = false;
   bool _isTorchOn = false;
   bool _isScanning = true;
   bool _showScanSuccess = false;

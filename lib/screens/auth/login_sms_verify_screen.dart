@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:dio/dio.dart';
-import 'dart:io';
 import '../../theme/app_theme.dart';
 import '../../routes.dart';
 import '../../services/api_service.dart';
@@ -16,11 +15,11 @@ class LoginSmsVerifyScreen extends StatefulWidget {
   final bool isPasswordReset;
 
   const LoginSmsVerifyScreen({
-    Key? key,
+    super.key,
     required this.phoneNumber,
     required this.password,
     this.isPasswordReset = false,
-  }) : super(key: key);
+  });
 
   @override
   _LoginSmsVerifyScreenState createState() => _LoginSmsVerifyScreenState();

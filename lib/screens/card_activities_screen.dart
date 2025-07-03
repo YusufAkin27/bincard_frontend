@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
-import '../constants/app_constants.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class CardActivitiesScreen extends StatefulWidget {
@@ -8,12 +7,12 @@ class CardActivitiesScreen extends StatefulWidget {
   final String cardName;
   final List<Color> cardColor;
 
-  CardActivitiesScreen({
-    Key? key,
+  const CardActivitiesScreen({
+    super.key,
     required this.cardNumber,
     required this.cardName,
     required this.cardColor,
-  }) : super(key: key);
+  });
 
   @override
   State<CardActivitiesScreen> createState() => _CardActivitiesScreenState();
@@ -381,7 +380,7 @@ class _CardActivitiesScreenState extends State<CardActivitiesScreen> {
             ),
             ...activitiesForDate
                 .map((activity) => _buildActivityItem(activity))
-                .toList(),
+                ,
             const SizedBox(height: 8),
           ],
         );

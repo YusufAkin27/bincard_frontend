@@ -35,13 +35,16 @@ import 'screens/auth/forgot_password_screen.dart';
 import 'screens/auth/verification_screen.dart';
 import 'screens/auth/reset_password_screen.dart';
 import 'screens/auth/login_sms_verify_screen.dart';
+import 'screens/auth/refresh_login_screen.dart';
 
 class AppRoutes {
   // Route isimleri
   static const String home = '/';
   static const String login = '/login';
+  static const String refreshLogin = '/refresh-login';
   static const String register = '/register';
   static const String forgotPassword = '/forgot-password';
+  static const String forgotPasswordSmsVerify = '/forgot-password-sms-verify';
   static const String verification = '/verification';
   static const String resetPassword = '/reset-password';
   static const String loginSmsVerify = '/login-sms-verify';
@@ -93,6 +96,10 @@ class AppRoutes {
   // Parametre gerektiren route'lar için generate metodu
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
+      case refreshLogin:
+        return MaterialPageRoute(
+          builder: (context) => const RefreshLoginScreen(),
+        );
       case verification:
         final args = settings.arguments as Map<String, dynamic>?;
         return MaterialPageRoute(

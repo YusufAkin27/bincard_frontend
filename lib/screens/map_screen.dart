@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class MapScreen extends StatefulWidget {
   final Map<String, dynamic>? initialLocation;
   final String? locationType;
 
-  const MapScreen({Key? key, this.initialLocation, this.locationType})
-    : super(key: key);
+  const MapScreen({super.key, this.initialLocation, this.locationType});
 
   @override
   State<MapScreen> createState() => _MapScreenState();

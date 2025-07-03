@@ -1,16 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../constants/app_constants.dart';
 import '../theme/app_theme.dart';
-import '../widgets/menu_card.dart';
 import 'dart:math' as math;
-import 'dart:ui';
 import 'profile_screen.dart';
 import 'wallet_screen.dart';
 import 'add_balance_screen.dart';
 import 'add_card_screen.dart';
 import 'saved_cards_screen.dart';
-import 'transfer_screen.dart';
 import 'card_activities_screen.dart';
 import 'qr_code_screen.dart';
 import 'notifications_screen.dart';
@@ -20,13 +16,11 @@ import 'news_screen.dart';
 import 'settings_screen.dart';
 import 'search_screen.dart';
 import 'feedback_screen.dart';
-import 'report_problem_screen.dart';
 import 'map_screen.dart';
 import 'card_renewal_screen.dart';
-import 'virtual_card_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();

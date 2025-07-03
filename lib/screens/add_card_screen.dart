@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
-import '../constants/app_constants.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class AddCardScreen extends StatefulWidget {
-  const AddCardScreen({Key? key}) : super(key: key);
+  const AddCardScreen({super.key});
 
   @override
   State<AddCardScreen> createState() => _AddCardScreenState();

@@ -10,13 +10,13 @@ class MenuCard extends StatelessWidget {
   final Color? backgroundColor;
 
   const MenuCard({
-    Key? key,
+    super.key,
     required this.title,
     required this.icon,
     this.iconColor,
     required this.onTap,
     this.backgroundColor,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -57,12 +57,12 @@ class WalletCard extends StatelessWidget {
   final VoidCallback onTap;
 
   const WalletCard({
-    Key? key,
+    super.key,
     required this.cardNumber,
     required this.cardHolderName,
     required this.balance,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
