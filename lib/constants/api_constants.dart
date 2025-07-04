@@ -12,7 +12,7 @@ class ApiConstants {
   // Auth endpoints
   static String get loginEndpoint => '/auth/login';
   static String get signUpEndpoint => '/user/sign-up';
-  static String get refreshTokenEndpoint => '/auth/refresh-token';
+  static String get refreshTokenEndpoint => '/auth/refresh';  // Updated to match actual usage
   static String get verifyCodeEndpoint => '/auth/verify-code';
   static String get resendCodeEndpoint => '/auth/resend-code';
   static String get forgotPasswordEndpoint => '/auth/forgot-password';
@@ -23,6 +23,8 @@ class ApiConstants {
   // User endpoints
   static String get userProfileEndpoint => '/user/profile';
   static String get updateUserEndpoint => '/user/update';
+  static String get updateProfileEndpoint => '/user/update-profile';
+  static String get verifyPhoneEndpoint => '/user/verify-phone';
   static String get changePasswordEndpoint => '/user/change-password';
   
   // Content Type ve diğer header'lar

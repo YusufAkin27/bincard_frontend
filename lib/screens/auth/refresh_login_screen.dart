@@ -552,6 +552,34 @@ class _RefreshLoginScreenState extends State<RefreshLoginScreen>
     }
   }
 
+  // Farklı hesap ile giriş yapmak için tüm kullanıcı verilerini temizle
+  Future<void> _clearAllUserData() async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      // Tüm tokenleri ve kullanıcı verilerini temizle
+      await _secureStorage.clearAll();
+      
+      // Biyometrik kimlik doğrulamayı devre dışı bırak
+      await _biometricService.disableBiometricAuthentication();
+      
+      debugPrint('Tüm kullanıcı verileri temizlendi, login ekranına yönlendiriliyor');
+      
+      // Login ekranına yönlendir
+      if (mounted) {
+        Navigator.pushNamedAndRemoveUntil(context, AppRoutes.login, (route) => false);
+      }
+    } catch (e) {
+      debugPrint('Kullanıcı verilerini temizlerken hata: $e');
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Veriler temizlenirken bir hata oluştu';
+      });
+    }
+  }
+
   // Mavi alanın içindeki karşılama içeriği
   Widget _buildWelcomeContent() {
     return Column(
@@ -693,8 +721,37 @@ class _RefreshLoginScreenState extends State<RefreshLoginScreen>
           const SizedBox(height: 16),
           _buildBiometricLoginButton(),
         ],
+        const SizedBox(height: 16),
+        _buildDifferentAccountButton(),
         const SizedBox(height: 24),
       ],
+    );
+  }
+
+  Widget _buildDifferentAccountButton() {
+    return Center(
+      child: TextButton(
+        onPressed: _isLoading ? null : _clearAllUserData,
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.logout, size: 20, color: AppTheme.primaryColor),
+            const SizedBox(width: 8),
+            Text(
+              'Farklı hesap ile giriş yap',
+              style: TextStyle(
+                color: AppTheme.primaryColor,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

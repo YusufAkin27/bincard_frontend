@@ -19,6 +19,8 @@ import 'feedback_screen.dart';
 import 'map_screen.dart';
 import 'card_renewal_screen.dart';
 import '../services/secure_storage_service.dart';
+import '../services/user_service.dart';
+import '../models/user_model.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -84,9 +86,26 @@ class _HomeScreenState extends State<HomeScreen>
         _userName = firstName;
       });
     } else {
-      setState(() {
-        _userName = "Misafir"; // Eğer ad bulunamazsa varsayılan değer
-      });
+      // Adı bulamadıysak, önce kullanıcı servisinden profili almayı deneyelim
+      try {
+        final userService = UserService();
+        final userProfile = await userService.getUserProfile();
+        
+        if (userProfile.name != null && userProfile.name!.isNotEmpty) {
+          setState(() {
+            _userName = userProfile.name!;
+          });
+        } else {
+          setState(() {
+            _userName = "Misafir"; // Eğer ad bulunamazsa varsayılan değer
+          });
+        }
+      } catch (e) {
+        debugPrint('Kullanıcı profili yüklenirken hata: $e');
+        setState(() {
+          _userName = "Misafir"; // Hata durumunda varsayılan değer
+        });
+      }
     }
   }
 

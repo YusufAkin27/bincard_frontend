@@ -5,14 +5,12 @@ import '../models/user_model.dart';
 import '../models/auth_model.dart';
 import 'token_service.dart';
 import 'secure_storage_service.dart';
+import '../constants/api_constants.dart';
 
 class UserService {
   final Dio _dio = Dio();
   final TokenService _tokenService = TokenService();
   final SecureStorageService _secureStorage = SecureStorageService();
-  
-  // API endpoint
-  static const String baseUrl = 'http://192.168.174.214:8080/v1/api';
   
   // Singleton pattern
   static final UserService _instance = UserService._internal();
@@ -38,7 +36,7 @@ class UserService {
       debugPrint('Kullanıcı kaydı yapılıyor: $phoneNumber');
       
       final response = await _dio.post(
-        '$baseUrl/user/sign-up',
+        ApiConstants.baseUrl + ApiConstants.signUpEndpoint,
         data: createUserRequest,
         options: Options(
           headers: {
@@ -74,7 +72,7 @@ class UserService {
       });
       
       final response = await _dio.post(
-        '$baseUrl/user/verify-phone',
+        ApiConstants.baseUrl + ApiConstants.verifyPhoneEndpoint,
         data: formData,
         options: Options(
           contentType: 'application/x-www-form-urlencoded',
@@ -108,7 +106,7 @@ class UserService {
       });
       
       final response = await _dio.post(
-        '$baseUrl/user/resend-code',
+        ApiConstants.baseUrl + ApiConstants.resendCodeEndpoint,
         data: formData,
         options: Options(
           contentType: 'application/x-www-form-urlencoded',
@@ -145,7 +143,7 @@ class UserService {
       debugPrint('Profil bilgileri getiriliyor...');
       
       final response = await _dio.get(
-        '$baseUrl/user/profile',
+        ApiConstants.baseUrl + ApiConstants.userProfileEndpoint,
         options: Options(
           headers: {
             'Authorization': 'Bearer $accessToken',
@@ -208,7 +206,7 @@ class UserService {
       debugPrint('Token yenilendi, profil bilgileri tekrar getiriliyor...');
       
       final response = await _dio.get(
-        '$baseUrl/user/profile',
+        ApiConstants.baseUrl + ApiConstants.userProfileEndpoint,
         options: Options(
           headers: {
             'Authorization': 'Bearer $newAccessToken',
@@ -271,7 +269,7 @@ class UserService {
       }
       
       final response = await _dio.put(
-        '$baseUrl/user/update-profile',
+        ApiConstants.baseUrl + ApiConstants.updateProfileEndpoint,
         data: formData,
         options: Options(
           headers: {

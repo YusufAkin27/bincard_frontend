@@ -730,8 +730,8 @@ class _LoginScreenState extends State<LoginScreen>
         suffixIcon: IconButton(
           icon: Icon(
             _obscurePassword
-                ? Icons.visibility_rounded
-                : Icons.visibility_off_rounded,
+                ? Icons.visibility_off_rounded    // Şifre gizli iken kapalı göz ikonu
+                : Icons.visibility_rounded,       // Şifre görünür iken açık göz ikonu
             color: AppTheme.primaryColor,
             size: 22,
           ),

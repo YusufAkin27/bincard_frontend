@@ -9,14 +9,11 @@ import 'secure_storage_service.dart';
 import '../models/auth_model.dart';
 import 'package:http/http.dart' as http;
 import '../main.dart'; // navigatorKey için ekledik
+import '../constants/api_constants.dart';
 
 class TokenService {
   final SecureStorageService _secureStorage = SecureStorageService();
   final Dio _dio = Dio();
-  
-  // API endpoint'leri
-  static const String baseUrl = 'http://192.168.219.61:8080/v1/api'; // API URL'nizi buraya girin
-  static const String refreshEndpoint = '/auth/refresh';
   
   // Otomatik token yenileme için threshold (saniye)
   static const int _tokenRenewalThreshold = 30;
@@ -114,7 +111,7 @@ class TokenService {
       
       // Token yenileme isteği
       final response = await _dio.post(
-        '$baseUrl/auth/refresh',
+        ApiConstants.baseUrl + ApiConstants.refreshTokenEndpoint,
         data: requestBody,
         options: options,
       );
@@ -579,7 +576,7 @@ class TokenService {
 
       try {
         final response = await Dio().post(
-          '$baseUrl/auth/refresh',
+          ApiConstants.baseUrl + ApiConstants.refreshTokenEndpoint,
           data: {'refreshToken': refreshToken},
           options: Options(headers: {'Content-Type': 'application/json'}),
         );
@@ -618,7 +615,7 @@ class TokenService {
     }
 
     final response = await http.post(
-      Uri.parse('$baseUrl/auth/refresh'),
+      Uri.parse(ApiConstants.baseUrl + ApiConstants.refreshTokenEndpoint),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         "refreshToken": refreshToken
