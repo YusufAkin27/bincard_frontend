@@ -18,6 +18,7 @@ import 'search_screen.dart';
 import 'feedback_screen.dart';
 import 'map_screen.dart';
 import 'card_renewal_screen.dart';
+import '../services/secure_storage_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -31,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen>
   int _selectedIndex = 0;
   late AnimationController _animationController;
   late Animation<double> _animation;
+  String _userName = ""; // Kullanıcı adını tutacak değişken
   
   // Kullanıcının kayıtlı kartları
   final List<Map<String, dynamic>> _cards = [
@@ -67,6 +69,25 @@ class _HomeScreenState extends State<HomeScreen>
       curve: Curves.easeInOut,
     );
     _animationController.forward();
+    
+    // Kullanıcı adını al
+    _loadUserName();
+  }
+  
+  // Kullanıcı adını güvenli depolamadan yükle
+  Future<void> _loadUserName() async {
+    final secureStorage = SecureStorageService();
+    final firstName = await secureStorage.getUserFirstName();
+    
+    if (firstName != null && firstName.isNotEmpty) {
+      setState(() {
+        _userName = firstName;
+      });
+    } else {
+      setState(() {
+        _userName = "Misafir"; // Eğer ad bulunamazsa varsayılan değer
+      });
+    }
   }
 
   @override
@@ -151,7 +172,7 @@ class _HomeScreenState extends State<HomeScreen>
                     end: Offset.zero,
                   ).animate(_animation),
                   child: Text(
-                    'Merhaba, Ahmet',
+                    'Merhaba, $_userName',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: AppTheme.textPrimaryColor,

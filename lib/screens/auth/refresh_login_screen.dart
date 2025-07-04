@@ -552,82 +552,11 @@ class _RefreshLoginScreenState extends State<RefreshLoginScreen>
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    // Ekran boyutunu bir kez al
-    final size = MediaQuery.of(context).size;
-
-    // Önbelleğe alma işlemi için precacheImage kullan
-    precacheImage(const AssetImage('assets/images/logo.png'), context);
-
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      body: Stack(
-        children: [
-          // Üst kısımdaki dekoratif gradient
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: size.height * 0.4,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: AppTheme.blueGradient,
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(40),
-                  bottomRight: Radius.circular(40),
-                ),
-              ),
-            ),
-          ),
-
-          // Ana içerik - Animasyonu sadece ilk yüklemede göster
-          SafeArea(
-            child: _isInitialized 
-              ? FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: SlideTransition(
-                    position: _slideAnimation,
-                    child: _buildMainContent(),
-                  ),
-                )
-              : const Center(
-                  child: CircularProgressIndicator(),
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMainContent() {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildHeader(),
-              const SizedBox(height: 30),
-              _buildLoginCard(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
+  // Mavi alanın içindeki karşılama içeriği
+  Widget _buildWelcomeContent() {
     return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const SizedBox(height: 60),
         // Logo ve ikon
         Container(
           padding: const EdgeInsets.all(16),
@@ -645,64 +574,72 @@ class _RefreshLoginScreenState extends State<RefreshLoginScreen>
           ),
           child: Icon(
             Icons.credit_card,
-            size: 60,
+            size: 60, // Logo boyutunu 50'den 60'a büyüttüm
             color: AppTheme.primaryColor,
           ),
         ),
-        const SizedBox(height: 24),
-        // Kullanıcı adı ile selamlama mesajı
+        const SizedBox(height: 16),
+        // Greeting message
         Text(
           _getGreetingMessage(),
-          style: TextStyle(
-            fontSize: 20,
+          style: const TextStyle(
+            fontSize: 22, // Yazı boyutunu 18'den 22'ye büyüttüm
             fontWeight: FontWeight.w500,
-            color: Colors.white.withOpacity(0.9),
-            shadows: [
-              Shadow(
-                color: Colors.black.withOpacity(0.2),
-                blurRadius: 2,
-                offset: const Offset(0, 1),
-              ),
-            ],
+            color: Colors.white,
           ),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
+        // User name
         Text(
           _userName ?? 'Değerli Kullanıcı',
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith( // headlineSmall yerine headlineMedium (daha büyük)
             fontWeight: FontWeight.bold,
             color: Colors.white,
             shadows: [
               Shadow(
                 color: Colors.black.withOpacity(0.2),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
+                blurRadius: 2,
+                offset: const Offset(0, 1),
               ),
             ],
           ),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
+        // Welcome back message
         Text(
           'Tekrar hoş geldiniz',
-          style: TextStyle(
-            fontSize: 16,
-            color: Colors.white.withOpacity(0.9),
+          style: const TextStyle(
+            fontSize: 18, // 16'dan 18'e büyüttüm
             fontWeight: FontWeight.w500,
-            shadows: [
-              Shadow(
-                color: Colors.black.withOpacity(0.2),
-                blurRadius: 2,
-                offset: const Offset(0, 1),
-              ),
-            ],
+            color: Colors.white,
           ),
           textAlign: TextAlign.center,
         ),
       ],
     );
   }
+
+  // Login formunu içeren kart için yeni metod
+  Widget _buildLoginFormContent() {
+    return Padding(
+      padding: EdgeInsets.only(
+        top: MediaQuery.of(context).size.height * 0.48, // Mavi alan ile form arasındaki mesafeyi artırdım (0.42 -> 0.48)
+        left: 24,
+        right: 24,
+      ),
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Form(
+          key: _formKey,
+          child: _buildLoginCard(),
+        ),
+      ),
+    );
+  }
+
+  // Eski buildHeader metodu yeni buildWelcomeContent metoduyla değiştirildi
 
   Widget _buildLoginCard() {
     return Container(
@@ -774,8 +711,8 @@ class _RefreshLoginScreenState extends State<RefreshLoginScreen>
         suffixIcon: IconButton(
           icon: Icon(
             _obscurePassword
-                ? Icons.visibility_rounded
-                : Icons.visibility_off_rounded,
+                ? Icons.visibility_off_rounded    // Şifre gizli iken kapalı göz ikonu 
+                : Icons.visibility_rounded,       // Şifre görünür iken açık göz ikonu
             color: AppTheme.primaryColor,
             size: 22,
           ),
@@ -916,6 +853,104 @@ class _RefreshLoginScreenState extends State<RefreshLoginScreen>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         elevation: 2,
         shadowColor: Colors.blue.withOpacity(0.5),
+      ),
+    );
+  }
+
+  // Yükleniyor göstergesi
+  Widget _buildLoadingOverlay() {
+    return Container(
+      color: Colors.black.withOpacity(0.3), // Arka planı daha şeffaf yaptım
+      width: double.infinity,
+      height: double.infinity,
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.all(16), // Daha küçük padding
+          decoration: BoxDecoration(
+            color: Colors.grey.shade200.withOpacity(0.8), // Beyaz yerine açık gri ve yarı şeffaf
+            shape: BoxShape.circle, // Yuvarlak bir container
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05), // Daha az belirgin gölge
+                blurRadius: 10,
+                spreadRadius: 0,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          // Sadece CircularProgressIndicator göster, yazı yok
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+            strokeWidth: 3.0, // Biraz daha kalın çizgi
+            backgroundColor: Colors.grey.withOpacity(0.2), // Gri ve düşük opaklıkta arka plan
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Ekran boyutunu bir kez al
+    final size = MediaQuery.of(context).size;
+
+    // Önbelleğe alma işlemi için precacheImage kullan
+    precacheImage(const AssetImage('assets/images/logo.png'), context);
+
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
+      body: Stack(
+        children: [
+          // Üst kısımdaki dekoratif gradient
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: size.height * 0.47, // Mavi alanı biraz daha genişlettim
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: AppTheme.blueGradient,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(40),
+                  bottomRight: Radius.circular(40),
+                ),
+              ),
+              // Mavi alanın içine doğrudan logo ve selamlama metinleri ekle
+              child: _isInitialized 
+                ? SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 40),
+                      child: _buildWelcomeContent(),
+                    ),
+                  )
+                : const Center(
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                    ),
+                  ),
+            ),
+          ),
+
+          // Login kartını ana içeriğin bir parçası olarak ekle
+          SafeArea(
+            child: _isInitialized 
+              ? FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: SlideTransition(
+                    position: _slideAnimation,
+                    child: _buildLoginFormContent(),
+                  ),
+                )
+              : const SizedBox(),
+          ),
+          
+          // Loading overlay
+          if (_isLoading) _buildLoadingOverlay(),
+        ],
       ),
     );
   }
