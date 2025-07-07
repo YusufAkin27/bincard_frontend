@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/app_theme.dart';
 import '../../services/api_service.dart';
+import '../../constants/api_constants.dart';
 import 'package:dio/dio.dart';
-import 'login_sms_verify_screen.dart';
+import 'verification_screen.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -73,7 +74,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
         // API isteği gönder
         final phoneNumber = _phoneController.text;
         final response = await _apiService.post(
-          '/user/password/forgot',
+          ApiConstants.passwordForgotEndpoint,
           queryParameters: {'phone': phoneNumber},
           useLoginDio: true,
         );
@@ -102,9 +103,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => LoginSmsVerifyScreen(
+                builder: (context) => VerificationScreen(
                   phoneNumber: phoneNumber,
-                  password: '',
                   isPasswordReset: true,
                 ),
               ),

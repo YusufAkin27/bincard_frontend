@@ -4,6 +4,7 @@ import '../../theme/app_theme.dart';
 import '../../services/auth_service.dart';
 import '../../services/api_service.dart';
 import '../../services/secure_storage_service.dart'; // Add this import
+import '../../constants/api_constants.dart';
 import 'package:dio/dio.dart';
 import 'login_screen.dart';
 import 'refresh_login_screen.dart';
@@ -74,7 +75,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
       // API isteği gönder
       final response = await _apiService.post(
-        '/user/password/reset',
+        ApiConstants.passwordResetEndpoint,
         data: {
           'resetToken': widget.resetToken,
           'newPassword': _passwordController.text,

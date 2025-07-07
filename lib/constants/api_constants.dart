@@ -14,11 +14,17 @@ class ApiConstants {
   static String get signUpEndpoint => '/user/sign-up';
   static String get refreshTokenEndpoint => '/auth/refresh';  // Updated to match actual usage
   static String get verifyCodeEndpoint => '/auth/verify-code';
-  static String get resendCodeEndpoint => '/auth/resend-code';
+  static String get resendCodeEndpoint => '/auth/resend-verify-code';
   static String get forgotPasswordEndpoint => '/auth/forgot-password';
   static String get resetPasswordEndpoint => '/auth/reset-password';
   static String get refreshLoginEndpoint => '/auth/refresh-login';
   static String get refreshLogin => '/auth/refresh-login'; // Backward compatibility
+  
+  // Password reset endpoints
+  static String get passwordForgotEndpoint => '/user/password/forgot';
+  static String get passwordVerifyCodeEndpoint => '/user/password/verify-code';
+  static String get passwordResetEndpoint => '/user/password/reset';
+  static String get passwordResendCodeEndpoint => '/user/password/resend-code';
   
   // User endpoints
   static String get userProfileEndpoint => '/user/profile';

@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:dio/dio.dart';
 import '../../theme/app_theme.dart';
 import '../../services/auth_service.dart';
 import '../../services/user_service.dart';
 import '../../services/secure_storage_service.dart';
 import '../../services/api_service.dart';
+import '../../constants/api_constants.dart';
 import 'login_screen.dart';
 import 'reset_password_screen.dart';
 
@@ -37,7 +39,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
 
   bool _isLoading = false;
   String _errorMessage = '';
-  int _remainingTime = 180; // 3 dakika (180 saniye)
+  int _remainingTime = 20; // 3 dakika (180 saniye)
   Timer? _timer;
   bool _canResend = false;
 
@@ -126,10 +128,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
   String codeStr = '';
   for (int i = 0; i < _controllers.length; i++) {
     codeStr += _controllers[i].text;
-    print('Kutu $i: ${_controllers[i].text}');
+    debugPrint('Kutu $i: ${_controllers[i].text}');
   }
   
-  print('Birleştirilmiş kod: $codeStr (${codeStr.runtimeType})');
+  debugPrint('Birleştirilmiş kod: $codeStr (${codeStr.runtimeType})');
   
   if (codeStr.length != 6) {
     setState(() {
@@ -146,7 +148,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
     return;
   }
   
-  print('Kod doğrulanıyor: $codeStr');
+  debugPrint('Kod doğrulanıyor: $codeStr');
 
   setState(() {
     _isLoading = true;
@@ -155,33 +157,40 @@ class _VerificationScreenState extends State<VerificationScreen> {
 
   try {
     if (widget.isPasswordReset) {
-      print('Şifre sıfırlama doğrulama kodu: $codeStr');
+      debugPrint('Şifre sıfırlama doğrulama kodu: $codeStr');
       
       // API'ye göndermeden önce veri yapısını kontrol et
       Map<String, dynamic> requestData = {'code': codeStr};
-      print('API isteği verisi: $requestData');
+      debugPrint('API isteği verisi: $requestData');
       
-      String token = await _verifyPasswordResetCode(codeStr);
-      print('API token yanıtı: $token');
+      try {
+        String token = await _verifyPasswordResetCode(codeStr);
+        debugPrint('API token yanıtı: $token');
 
-      if (!mounted) return;
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Kod doğrulandı, yeni şifre belirleyin.'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ResetPasswordScreen(
-            phoneNumber: widget.phoneNumber,
-            resetToken: token,
+        if (!mounted) return;
+        
+        // Başarılı doğrulama durumunda kullanıcıyı bilgilendir
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Kod doğrulandı, yeni şifre belirleyin.'),
+            backgroundColor: Colors.green,
           ),
-        ),
-      );
+        );
+        
+        // Yeni şifre belirleme ekranına yönlendir
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ResetPasswordScreen(
+              phoneNumber: widget.phoneNumber,
+              resetToken: token,
+            ),
+          ),
+        );
+      } catch (innerError) {
+        debugPrint('⚠️ Şifre sıfırlama kodu doğrulama hatası: $innerError');
+        throw innerError; // Dışarıdaki catch bloğunun yakalaması için hatayı yeniden fırlat
+      }
     } else {
       // Normal kayıt doğrulama
       int? code = int.tryParse(codeStr);
@@ -210,7 +219,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
       );
     }
   } catch (e) {
-    print('Doğrulama hatası: $e');
+    debugPrint('Doğrulama hatası: $e');
     setState(() {
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
       _isCodeComplete = false;
@@ -222,16 +231,14 @@ class _VerificationScreenState extends State<VerificationScreen> {
       });
     }
   }
-}
-
-Future<String> _verifyPasswordResetCode(String codeStr) async {
+}  Future<String> _verifyPasswordResetCode(String codeStr) async {
   print('Gönderilen kod: $codeStr');
 
   int code = int.parse(codeStr);
 
   try {
     final response = await _apiService.post(
-      '/user/password/verify-code',
+      ApiConstants.passwordVerifyCodeEndpoint,
       data: {'code': code},
       useLoginDio: true,
     );
@@ -243,13 +250,32 @@ Future<String> _verifyPasswordResetCode(String codeStr) async {
     }
 
     final data = response.data as Map<String, dynamic>;
+    
+    // Debug log to see all response keys
+    print('API yanıtı anahtarları: ${data.keys.toList()}');
 
-    final bool isSuccess = data['isSuccess'] == true;
+    // API yanıtındaki başarı durumunu kontrol et - isSuccess veya success anahtarı olabilir
+    bool isSuccess = false;
+    if (data.containsKey('success')) {
+      isSuccess = data['success'] == true;
+      print('Success key found: $isSuccess');
+    } else if (data.containsKey('isSuccess')) {
+      isSuccess = data['isSuccess'] == true;
+      print('isSuccess key found: $isSuccess');
+    }
+    
     final String message = data['message'] ?? '';
+    print('Message from API: $message');
 
-    if (isSuccess) {
+    // Return token (message) even if success is not explicitly true
+    // This is because some API responses might be differently structured
+    // but still contain valid tokens in the message field
+    if (message.isNotEmpty && !message.toLowerCase().contains('hata') && !message.toLowerCase().contains('error')) {
       print('Reset token: $message');
       return message; // reset token
+    } else if (isSuccess) {
+      print('isSuccess true but empty message, using empty token');
+      return message; // return even empty message if success is true
     } else {
       throw Exception('Kod doğrulama başarısız: $message');
     }
@@ -275,36 +301,150 @@ Future<String> _verifyPasswordResetCode(String codeStr) async {
     });
 
     try {
-      // UserService kullanarak kodu yeniden gönder
-      final response = await _userService.resendCode(widget.phoneNumber);
+      // Telefon numarası formatlama
+      String formattedPhone = widget.phoneNumber;
+      
+      // Parantez, boşluk ve tire gibi karakterleri kaldır
+      formattedPhone = formattedPhone.replaceAll(RegExp(r'[\s\(\)\-]'), '');
+      
+      // Sadece rakamlardan oluştuğundan emin ol
+      formattedPhone = formattedPhone.replaceAll(RegExp(r'[^0-9]'), '');
+      
+      // Başında 0 veya 90 varsa kaldır, sade 10 haneli numara olsun
+      if (formattedPhone.startsWith('0')) {
+        formattedPhone = formattedPhone.substring(1);
+      } else if (formattedPhone.startsWith('90') && formattedPhone.length >= 12) {
+        formattedPhone = formattedPhone.substring(2);
+      }
+      
+      // 10 haneden uzun ise son 10 haneyi al
+      if (formattedPhone.length > 10) {
+        formattedPhone = formattedPhone.substring(formattedPhone.length - 10);
+      }
+      
+      debugPrint('📱 Formatlanmış telefon: $formattedPhone');
 
-      if (response.success) {
-        // Zamanı sıfırla (3 dakika) ve timeri başlat
-        setState(() {
-          _remainingTime = 180; // 3 dakika
-        });
-        _startTimer();
+      // İşlem türüne göre farklı endpoint ve parametre kullan
+      if (widget.isPasswordReset) {
+        // Şifre sıfırlama kodu yeniden gönderme
+        debugPrint('🔄 Şifre sıfırlama kodu yeniden gönderiliyor...');
+        
+        try {
+          // API çağrısını dene
+          final response = await _apiService.post(
+            ApiConstants.passwordForgotEndpoint,
+            queryParameters: {'phone': formattedPhone},
+            useLoginDio: true,
+          );
+          
+          debugPrint('✅ API yanıtı: Status=${response.statusCode}, Body=${response.data}');
+          
+          if (response.statusCode == 200 || response.statusCode == 201) {
+            // Başarılı yanıt - işleme devam et
+            bool isSuccess = true;
+            String message = 'Şifre sıfırlama kodu yeniden gönderildi!';
+            
+            // Yanıt içeriğini kontrol et
+            if (response.data != null && response.data is Map) {
+              if (response.data.containsKey('success')) {
+                isSuccess = response.data['success'] == true;
+              } else if (response.data.containsKey('isSuccess')) {
+                isSuccess = response.data['isSuccess'] == true;
+              }
+              
+              if (response.data.containsKey('message') && response.data['message'] != null) {
+                message = response.data['message'].toString();
+              }
+            }
+            
+            // Başarı durumunu göster
+            debugPrint('Kod yeniden gönderme başarı durumu: $isSuccess');
+            debugPrint('Mesaj: $message');
+            
+            // Zamanı sıfırla (3 dakika) ve timeri başlat
+            setState(() {
+              _remainingTime = 180; // 3 dakika
+            });
+            _startTimer();
 
-        // Kod kutularını temizle
-        _clearAllFields();
+            // Kod kutularını temizle
+            _clearAllFields();
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response.message ?? 'Yeni doğrulama kodu gönderildi'),
-            backgroundColor: Colors.green,
-          ),
-        );
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(message),
+                backgroundColor: Colors.green,
+              ),
+            );
+          } else {
+            throw Exception('Sunucudan geçersiz yanıt alındı (${response.statusCode})');
+          }
+        } catch (innerException) {
+          debugPrint('Şifre sıfırlama kod gönderme hatası: $innerException');
+          throw innerException; // Hatayı dışarıdaki catch bloğuna ilet
+        }
       } else {
-        setState(() {
-          _errorMessage = response.message ?? 'Kod gönderme işlemi başarısız oldu.';
-          _canResend = true;
-        });
+        // Normal doğrulama kodu yeniden gönderme
+        final response = await _userService.resendCode(formattedPhone);
+
+        if (response.success) {
+          // Zamanı sıfırla (3 dakika) ve timeri başlat
+          setState(() {
+            _remainingTime = 180; // 3 dakika
+          });
+          _startTimer();
+
+          // Kod kutularını temizle
+          _clearAllFields();
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response.message ?? 'Yeni doğrulama kodu gönderildi'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          setState(() {
+            _errorMessage = response.message ?? 'Kod gönderme işlemi başarısız oldu.';
+            _canResend = true;
+          });
+        }
       }
     } catch (e) {
+      debugPrint('⚠️ Kod yeniden gönderme hatası: $e');
+      String errorMessage = 'Beklenmeyen bir hata oluştu';
+      
+      // DioException ise daha detaylı mesaj göster
+      if (e is DioException) {
+        if (e.response != null && e.response!.data != null) {
+          try {
+            var responseData = e.response!.data;
+            if (responseData is Map && responseData.containsKey('message')) {
+              errorMessage = responseData['message'].toString();
+            }
+          } catch (innerError) {
+            debugPrint('Yanıt işlenirken hata: $innerError');
+          }
+        } else {
+          errorMessage = 'Bağlantı hatası: ${e.message}';
+        }
+      } else {
+        // Genel hata
+        errorMessage = e.toString().replaceFirst('Exception: ', '');
+      }
+      
       setState(() {
-        _errorMessage = 'Beklenmeyen bir hata oluştu: $e';
+        _errorMessage = errorMessage;
         _canResend = true;
       });
+      
+      // Kullanıcıyı bilgilendir
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red,
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -465,7 +605,9 @@ Future<String> _verifyPasswordResetCode(String codeStr) async {
     return Column(
       children: [
         Text(
-          'Doğrulama kodunuz gelmedi mi?',
+          widget.isPasswordReset 
+              ? 'Şifre sıfırlama kodunuz gelmedi mi?'
+              : 'Doğrulama kodunuz gelmedi mi?',
           style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14),
         ),
         const SizedBox(height: 12),
@@ -473,7 +615,9 @@ Future<String> _verifyPasswordResetCode(String codeStr) async {
             ? TextButton(
                 onPressed: _resendCode,
                 child: Text(
-                  'Yeniden Kod Gönder',
+                  widget.isPasswordReset
+                      ? 'Şifre Sıfırlama Kodu Gönder'
+                      : 'Yeniden Kod Gönder',
                   style: TextStyle(
                     color: AppTheme.primaryColor,
                     fontWeight: FontWeight.bold,
