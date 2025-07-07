@@ -193,6 +193,10 @@ class _LoginSmsVerifyScreenState extends State<LoginSmsVerifyScreen> {
         await _secureStorage.setAccessTokenExpiry(tokenResponse.accessToken.expiredAt.toIso8601String());
         await _secureStorage.setRefreshTokenExpiry(tokenResponse.refreshToken.expiredAt.toIso8601String());
         
+        // Phone number'ı da güvenli depolamaya kaydet
+        await _secureStorage.setUserPhone(widget.phoneNumber);
+        debugPrint('Phone number saved to secure storage: ${widget.phoneNumber}');
+        
         // Token interceptor'ı etkinleştir
         _apiService.setupTokenInterceptor();
         

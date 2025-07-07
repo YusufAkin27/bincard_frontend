@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Import SharedPreferences
 import '../../theme/app_theme.dart';
 import '../../services/auth_service.dart';
 import '../../services/api_service.dart';
+import '../../services/secure_storage_service.dart'; // Add this import
 import 'package:dio/dio.dart';
 import 'login_screen.dart';
+import 'refresh_login_screen.dart';
+import '../../routes.dart'; // Import for AppRoutes
 
 class ResetPasswordScreen extends StatefulWidget {
   final String phoneNumber;
@@ -25,6 +29,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   final _confirmPasswordController = TextEditingController();
   final _authService = AuthService();
   final _apiService = ApiService();
+  final _secureStorage = SecureStorageService(); // Add secure storage service
   
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -38,6 +43,17 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     super.dispose();
   }
 
+  // Telefon numarasını SharedPreferences'a kaydetme yardımcı metodu
+  Future<void> _savePhoneToPrefs(String phoneNumber) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('last_used_phone', phoneNumber);
+      debugPrint('📱 Telefon numarası SharedPreferences\'a kaydedildi: $phoneNumber');
+    } catch (e) {
+      debugPrint('⚠️ Telefon numarasını SharedPreferences\'a kaydederken hata: $e');
+    }
+  }
+
   Future<void> _resetPassword() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -49,6 +65,13 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     });
 
     try {
+      // Save the phone number to secure storage before making any API calls
+      await _secureStorage.setUserPhone(widget.phoneNumber);
+      debugPrint('📱 Telefon numarası secure storage\'a kaydedildi: ${widget.phoneNumber}');
+      
+      // Ayrıca telefon numarasını SharedPreferences'a da kaydedelim (yedek olarak)
+      await _savePhoneToPrefs(widget.phoneNumber);
+
       // API isteği gönder
       final response = await _apiService.post(
         '/user/password/reset',
@@ -63,14 +86,31 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         if (response.data is Map && response.data['success'] == true) {
           if (!mounted) return;
 
+          // Şifre sıfırlama başarılı - artık otomatik giriş yapmıyoruz
+          debugPrint('✅ Şifre sıfırlama başarılı');
+          
+          // Telefon numarasını kaydet (başarılı işlem sonrası garanti olsun)
+          await _secureStorage.setUserPhone(widget.phoneNumber);
+          await _savePhoneToPrefs(widget.phoneNumber);
+          debugPrint('📱 Telefon numarası başarıyla kaydedildi: ${widget.phoneNumber}');
+
+          // Clear the refresh token and related data after successful password reset
+          await _secureStorage.clearTokens();
+          debugPrint('🔄 Tokenlar temizlendi, kullanıcı login ekranına yönlendirilecek');
+
+          // Başarı mesajını göster
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(response.data['message'] ?? 'Şifreniz başarıyla sıfırlandı!'),
+              content: Text(response.data['message'] ?? 'Şifreniz başarıyla sıfırlandı! Lütfen yeni şifrenizle giriş yapın.'),
               backgroundColor: Colors.green,
+              duration: const Duration(seconds: 4),
             ),
           );
 
-          // Giriş sayfasına yönlendir
+          // Kısa bir gecikme ile login ekranına yönlendir
+          await Future.delayed(const Duration(milliseconds: 500));
+
+          // Login ekranına yönlendir
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -271,14 +311,3 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     );
   }
 }
-
-// Auth servisinden alınacak yanıt modeli
-class ResponseMessage {
-  final bool success;
-  final String? message;
-
-  ResponseMessage({
-    required this.success,
-    this.message,
-  });
-} 

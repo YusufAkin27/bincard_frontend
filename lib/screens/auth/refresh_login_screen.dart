@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math' as math; // Added math import
+import 'package:shared_preferences/shared_preferences.dart'; // SharedPreferences için import
 import '../../theme/app_theme.dart';
 import '../../services/auth_service.dart';
 import '../../services/biometric_service.dart';
@@ -9,6 +10,7 @@ import '../../services/user_service.dart';
 import '../../services/token_service.dart';
 import '../../services/api_service.dart';
 import 'login_screen.dart';
+import 'forgot_password_screen.dart'; // Import for forgot password screen
 import '../../screens/home_screen.dart';
 import '../../routes.dart';
 
@@ -38,6 +40,7 @@ class _RefreshLoginScreenState extends State<RefreshLoginScreen>
   String _errorMessage = '';
   bool _isInitialized = false;
   String? _userName;
+  String? _userPhone; // Telefon numarası için değişken
   int _biometricAttempts = 0;
   final int _maxBiometricAttempts = 3;
 
@@ -97,6 +100,32 @@ class _RefreshLoginScreenState extends State<RefreshLoginScreen>
       final firstName = await _secureStorage.getUserFirstName();
       final lastName = await _secureStorage.getUserLastName();
       final refreshToken = await _secureStorage.getRefreshToken();
+      
+      // Telefon numarasını secure storage'dan yükle
+      final phone = await _secureStorage.getUserPhone();
+      debugPrint('📱 Secure storage\'dan telefon numarası: $phone');
+      
+      // Eğer secure storage'da yoksa, SharedPreferences'dan kontrol et
+      if (phone == null) {
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          final savedPhone = prefs.getString('last_used_phone');
+          if (savedPhone != null) {
+            debugPrint('📱 SharedPreferences\'dan telefon numarası bulundu: $savedPhone');
+            // Secure storage'a kaydet
+            await _secureStorage.setUserPhone(savedPhone);
+            setState(() {
+              _userPhone = savedPhone;
+            });
+          }
+        } catch (e) {
+          debugPrint('⚠️ SharedPreferences\'dan telefon yüklenirken hata: $e');
+        }
+      } else {
+        setState(() {
+          _userPhone = phone;
+        });
+      }
       
       debugPrint('🔍 Refresh token var mı: ${refreshToken != null}');
       if (refreshToken != null) {
@@ -183,6 +212,26 @@ class _RefreshLoginScreenState extends State<RefreshLoginScreen>
       try {
         debugPrint('🔄 Refresh login başlatılıyor...');
         
+        // Telefon numarasını kontrol et
+        final phoneNumber = await _secureStorage.getUserPhone();
+        debugPrint('� Refresh login için telefon numarası: $phoneNumber');
+        
+        // Telefon numarası yoksa ek kontrol yap
+        if (phoneNumber == null) {
+          debugPrint('⚠️ Secure storage\'da telefon numarası bulunamadı, SharedPreferences\'a bakılıyor...');
+          final prefs = await SharedPreferences.getInstance();
+          final savedPhone = prefs.getString('last_used_phone');
+          
+          if (savedPhone != null) {
+            debugPrint('📱 SharedPreferences\'dan telefon numarası bulundu: $savedPhone');
+            // Secure storage'a kaydet
+            await _secureStorage.setUserPhone(savedPhone);
+            setState(() {
+              _userPhone = savedPhone;
+            });
+          }
+        }
+        
         // Check refresh token before the operation
         final refreshTokenBefore = await _secureStorage.getRefreshToken();
         debugPrint('🔍 Refresh login öncesi refresh token: ${refreshTokenBefore != null ? "var" : "yok"}');
@@ -201,6 +250,10 @@ class _RefreshLoginScreenState extends State<RefreshLoginScreen>
         final refreshToken = await _secureStorage.getRefreshToken();
         debugPrint('💾 Access token kaydedildi: ${accessToken != null ? "✅" : "❌"}');
         debugPrint('💾 Refresh token kaydedildi: ${refreshToken != null ? "✅" : "❌"}');
+        
+        // Telefon numarasını tekrar kontrol et
+        final phoneNumberAfter = await _secureStorage.getUserPhone();
+        debugPrint('🔍 Refresh login sonrası telefon numarası: $phoneNumberAfter');
         
         // Fetch user profile to ensure we have updated user information
         try {
@@ -717,6 +770,8 @@ class _RefreshLoginScreenState extends State<RefreshLoginScreen>
           const SizedBox(height: 16),
         ],
         _buildLoginButton(),
+        const SizedBox(height: 12),
+        _buildForgotPasswordButton(),
         if (_canUseBiometrics) ...[
           const SizedBox(height: 16),
           _buildBiometricLoginButton(),
@@ -725,6 +780,31 @@ class _RefreshLoginScreenState extends State<RefreshLoginScreen>
         _buildDifferentAccountButton(),
         const SizedBox(height: 24),
       ],
+    );
+  }
+
+  Widget _buildForgotPasswordButton() {
+    return Center(
+      child: TextButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ForgotPasswordScreen()),
+          );
+        },
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        child: Text(
+          'Şifremi Unuttum',
+          style: TextStyle(
+            color: AppTheme.primaryColor,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
     );
   }
 

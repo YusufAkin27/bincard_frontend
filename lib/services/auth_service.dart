@@ -70,6 +70,10 @@ class AuthService {
         await _secureStorage.setAccessTokenExpiry(tokenResponse.accessToken.expiredAt.toIso8601String());
         await _secureStorage.setRefreshTokenExpiry(tokenResponse.refreshToken.expiredAt.toIso8601String());
         
+        // Save phone number to secure storage
+        await _secureStorage.setUserPhone(phone);
+        debugPrint('Saved phone number to secure storage: $phone');
+        
         // Log the tokens
         final savedAccessToken = await _secureStorage.getAccessToken();
         final savedRefreshToken = await _secureStorage.getRefreshToken();
@@ -649,6 +653,10 @@ class AuthService {
       String? userPhone;
       try {
         userPhone = await _secureStorage.getUserPhone();
+        debugPrint('🔍 Refresh login için telefon numarası: $userPhone');
+        if (userPhone == null) {
+          debugPrint('⚠️ Telefon numarası bulunamadı, refresh login başarısız olabilir');
+        }
       } catch (e) {
         debugPrint('Telefon numarası alınamadı, devam ediliyor: $e');
       }
@@ -667,6 +675,12 @@ class AuthService {
         'refreshToken': refreshToken,
         'password': password,
       };
+      
+      // Telefon numarası varsa ekle
+      if (userPhone != null) {
+        requestBody['telephone'] = userPhone;
+        debugPrint('👍 Telefon numarası refresh login isteğine eklendi');
+      }
       
       debugPrint('⭐ REFRESH LOGIN REQUEST DETAILS (Simple Format) ⭐');
       debugPrint('Endpoint: ${ApiConstants.baseUrl}${ApiConstants.refreshLoginEndpoint}');
@@ -841,6 +855,33 @@ class AuthService {
       
       if (accessTokenData == null) {
         throw Exception('Access token bilgileri eksik. Lütfen tekrar giriş yapın.');
+      }
+      
+      // Telefon numarasını al ve kaydet - şifre sıfırlama sonrası tutarlılık için
+      if (response.data.containsKey('user') && response.data['user'] is Map) {
+        final user = response.data['user'];
+        if (user.containsKey('telephone')) {
+          final phone = user['telephone'];
+          if (phone != null && phone is String) {
+            await _secureStorage.setUserPhone(phone);
+            debugPrint('✅ Refresh login response\'dan telefon numarası kaydedildi: $phone');
+          }
+        }
+        
+        // Kullanıcı adı ve soyadı da kaydet
+        if (user.containsKey('firstName')) {
+          final firstName = user['firstName'];
+          if (firstName != null && firstName is String) {
+            await _secureStorage.setUserFirstName(firstName);
+          }
+        }
+        
+        if (user.containsKey('lastName')) {
+          final lastName = user['lastName'];
+          if (lastName != null && lastName is String) {
+            await _secureStorage.setUserLastName(lastName);
+          }
+        }
       }
       
       // Access Token işleme
