@@ -39,7 +39,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
 
   bool _isLoading = false;
   String _errorMessage = '';
-  int _remainingTime = 20; // 3 dakika (180 saniye)
+  int _remainingTime = 180; // 3 dakika (180 saniye)
   Timer? _timer;
   bool _canResend = false;
 
