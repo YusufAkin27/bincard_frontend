@@ -236,20 +236,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
   Widget _buildHeader() {
     return Column(
       children: [
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: AppTheme.primaryColor.withOpacity(0.9),
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.primaryColor.withOpacity(0.3),
-                blurRadius: 15,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: const Icon(Icons.lock_reset, size: 64, color: Colors.white),
+        // Doğrudan logo görselini göster, yuvarlak arka plan olmadan
+        Image.asset(
+          'assets/images/logo2.png',
+          width: 140,
+          height: 140,
         ),
         const SizedBox(height: 24),
         Text(

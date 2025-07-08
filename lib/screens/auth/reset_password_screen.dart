@@ -161,10 +161,12 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 30),
-              Icon(
-                Icons.lock_reset,
-                size: 60,
-                color: AppTheme.primaryColor,
+              Center(
+                child: Image.asset(
+                  'assets/images/logo2.png',
+                  width: 140,
+                  height: 140,
+                ),
               ),
               const SizedBox(height: 24),
               Text(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart'; // Yeni import - TapGestureRecognizer için
 import '../../theme/app_theme.dart';
 import '../../services/auth_service.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
@@ -172,6 +173,113 @@ class _RegisterScreenState extends State<RegisterScreen>
     }
   }
 
+  // Gizlilik politikası dialogunu gösterecek metod
+  void _showPrivacyPolicyDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Gizlilik Politikası',
+          style: TextStyle(
+            color: AppTheme.primaryColor,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Gizlilik Politikası ve Kişisel Verilerin Korunması',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: AppTheme.textPrimaryColor,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Bu gizlilik politikası, şehir kartı hizmetlerimizi kullanırken sizden toplanan kişisel verilerin nasıl kullanıldığını ve korunduğunu açıklamaktadır.',
+                style: TextStyle(
+                  color: AppTheme.textSecondaryColor,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '1. Toplanan Veriler',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: AppTheme.textPrimaryColor,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '• Kişisel bilgiler (ad, soyad, telefon numarası)\n'
+                '• Konum bilgileri (kart kullanımı sırasında)\n'
+                '• Kullanım istatistikleri ve tercihler',
+                style: TextStyle(
+                  color: AppTheme.textSecondaryColor,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '2. Verilerin Kullanımı',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: AppTheme.textPrimaryColor,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '• Hizmetlerimizi sağlamak ve geliştirmek\n'
+                '• Güvenliğinizi sağlamak\n'
+                '• Yasal yükümlülüklerimizi yerine getirmek',
+                style: TextStyle(
+                  color: AppTheme.textSecondaryColor,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '3. Veri Güvenliği',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: AppTheme.textPrimaryColor,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Kişisel verileriniz, endüstri standardı güvenlik önlemleri ile korunmaktadır ve yetkisiz erişime karşı düzenli olarak denetlenmektedir.',
+                style: TextStyle(
+                  color: AppTheme.textSecondaryColor,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Anladım',
+              style: TextStyle(
+                color: AppTheme.primaryColor,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -238,7 +346,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                   child: Column(
                     children: [
                       _buildHeader(),
-                      const SizedBox(height: 30),
+                      const SizedBox(height: 10), // 20'den 10'a düşürdüm
                       _buildRegisterCard(),
                     ],
                   ),
@@ -254,45 +362,12 @@ class _RegisterScreenState extends State<RegisterScreen>
   Widget _buildHeader() {
     return Column(
       children: [
-        const SizedBox(height: 60),
-        Hero(
-          tag: 'app_logo',
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 20,
-                  spreadRadius: 5,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Icon(
-              Icons.credit_card,
-              size: 60,
-              color: AppTheme.primaryColor,
-            ),
-          ),
-        ),
-        const SizedBox(height: 24),
-        Text(
-          'Şehir Kartı Kayıt',
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            shadows: [
-              Shadow(
-                color: Colors.black.withOpacity(0.2),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          textAlign: TextAlign.center,
+        const SizedBox(height: 40),
+        // Doğrudan logo görselini göster, yuvarlak arka plan olmadan
+        Image.asset(
+          'assets/images/logo2.png',
+          width: 140,
+          height: 140,
         ),
       ],
     );
@@ -524,8 +599,8 @@ class _RegisterScreenState extends State<RegisterScreen>
         suffixIcon: IconButton(
           icon: Icon(
             _obscurePassword
-                ? Icons.visibility_rounded
-                : Icons.visibility_off_rounded,
+                ? Icons.visibility_off_rounded  // Şifre gizli - kapalı göz ikonu
+                : Icons.visibility_rounded,     // Şifre görünür - açık göz ikonu
             color: AppTheme.primaryColor,
             size: 22,
           ),
@@ -583,8 +658,8 @@ class _RegisterScreenState extends State<RegisterScreen>
         suffixIcon: IconButton(
           icon: Icon(
             _obscureConfirmPassword
-                ? Icons.visibility_rounded
-                : Icons.visibility_off_rounded,
+                ? Icons.visibility_off_rounded  // Şifre gizli - kapalı göz ikonu
+                : Icons.visibility_rounded,     // Şifre görünür - açık göz ikonu
             color: AppTheme.primaryColor,
             size: 22,
           ),
@@ -667,6 +742,10 @@ class _RegisterScreenState extends State<RegisterScreen>
                       color: AppTheme.primaryColor,
                       fontWeight: FontWeight.bold,
                     ),
+                    recognizer: TapGestureRecognizer()
+                      ..onTap = () {
+                        _showPrivacyPolicyDialog();
+                      },
                   ),
                   const TextSpan(text: 'kabul ediyorum.'),
                 ],

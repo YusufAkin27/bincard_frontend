@@ -520,27 +520,12 @@ class _LoginScreenState extends State<LoginScreen>
   Widget _buildHeader() {
     return Column(
       children: [
-        const SizedBox(height: 60),
-        // Hero animasyonunu kaldıralım, performans için
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 20,
-                spreadRadius: 5,
-                offset: const Offset(0, 5),
-              ),
-            ],
-          ),
-          child: Icon(
-            Icons.credit_card,
-            size: 60,
-            color: AppTheme.primaryColor,
-          ),
+        const SizedBox(height: 40), // Üstteki boşluğu azalttım
+        // Doğrudan logo görselini göster, yuvarlak arka plan olmadan
+        Image.asset(
+          'assets/images/logo2.png',
+          width: 140,   // Arka plan olmadan biraz daha büyük
+          height: 140,  // Arka plan olmadan biraz daha büyük
         ),
         const SizedBox(height: 24),
         if (_hasRefreshToken && _userName != null) ...[

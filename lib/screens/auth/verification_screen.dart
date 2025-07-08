@@ -474,10 +474,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
               children: [
                 const SizedBox(height: 30),
                 Center(
-                  child: Icon(
-                    Icons.verified_user_rounded,
-                    size: 60,
-                    color: AppTheme.primaryColor,
+                  child: Image.asset(
+                    'assets/images/logo2.png',
+                    width: 140,
+                    height: 140,
                   ),
                 ),
                 const SizedBox(height: 24),

@@ -638,28 +638,13 @@ class _RefreshLoginScreenState extends State<RefreshLoginScreen>
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Logo ve ikon
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 20,
-                spreadRadius: 5,
-                offset: const Offset(0, 5),
-              ),
-            ],
-          ),
-          child: Icon(
-            Icons.credit_card,
-            size: 60, // Logo boyutunu 50'den 60'a büyüttüm
-            color: AppTheme.primaryColor,
-          ),
+        // Logo - yuvarlak arka plan olmadan doğrudan logo
+        Image.asset(
+          'assets/images/logo2.png',
+          width: 140,   // Biraz daha büyük
+          height: 140,  // Biraz daha büyük
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12), // Boşluğu azalttım
         // Greeting message
         Text(
           _getGreetingMessage(),
