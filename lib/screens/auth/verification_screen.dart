@@ -385,7 +385,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
         }
       } else {
         // Normal doğrulama kodu yeniden gönderme
-        final response = await _userService.resendCode(formattedPhone);
+        final response = await _authService.resendVerificationCode(formattedPhone);
 
         if (response.success) {
           // Zamanı sıfırla (3 dakika) ve timeri başlat
@@ -611,36 +611,34 @@ class _VerificationScreenState extends State<VerificationScreen> {
           style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14),
         ),
         const SizedBox(height: 12),
-        _canResend
-            ? TextButton(
-                onPressed: _resendCode,
-                child: Text(
-                  widget.isPasswordReset
-                      ? 'Şifre Sıfırlama Kodu Gönder'
-                      : 'Yeniden Kod Gönder',
-                  style: TextStyle(
-                    color: AppTheme.primaryColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            TextButton(
+              onPressed: _canResend ? _resendCode : null,
+              child: Text(
+                widget.isPasswordReset
+                    ? 'Şifre Sıfırlama Kodu Gönder'
+                    : 'Yeniden Kod Gönder',
+                style: TextStyle(
+                  color: _canResend ? AppTheme.primaryColor : Colors.grey.shade400,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
                 ),
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Yeni kod: ',
-                    style: TextStyle(color: AppTheme.textSecondaryColor),
-                  ),
-                  Text(
-                    _formatTime(_remainingTime),
-                    style: TextStyle(
-                      color: AppTheme.primaryColor,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
               ),
+            ),
+            if (!_canResend) ...[
+              const SizedBox(width: 10),
+              Text(
+                _formatTime(_remainingTime),
+                style: TextStyle(
+                  color: AppTheme.primaryColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ],
+        ),
       ],
     );
   }

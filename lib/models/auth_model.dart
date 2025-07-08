@@ -107,6 +107,10 @@ class ResponseMessage {
   factory ResponseMessage.error(String message) {
     return ResponseMessage(message: message, success: false);
   }
+  
+  factory ResponseMessage.success(String message) {
+    return ResponseMessage(message: message, success: true);
+  }
 }
 
 class TokenDTO {

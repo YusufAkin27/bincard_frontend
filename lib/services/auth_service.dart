@@ -569,22 +569,38 @@ class AuthService {
   // Yeniden doğrulama kodu gönder
   Future<ResponseMessage> resendVerificationCode(String phoneNumber) async {
     try {
-      final response = await http.post(
-        Uri.parse('${ApiConstants.baseUrl}/user/resend-code'),
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: {'phoneNumber': phoneNumber},
-      ).timeout(const Duration(seconds: 15));
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        return ResponseMessage.fromJson(data);
+      debugPrint('Yeniden doğrulama kodu gönderiliyor: $phoneNumber');
+      
+      // Dio kullanarak istek gönder - daha güvenilir hata işleme için
+      final response = await _apiService.post(
+        ApiConstants.resendCodeEndpoint, // Doğru endpoint: /auth/resend-verify-code
+        queryParameters: {'telephone': phoneNumber}, // Data yerine queryParameters kullan
+        useLoginDio: true,
+      );
+      
+      debugPrint('Doğrulama kodu yanıtı: ${response.statusCode} - ${response.data}');
+      
+      if (response.statusCode == 200 && response.data != null) {
+        if (response.data is Map<String, dynamic>) {
+          return ResponseMessage.fromJson(response.data);
+        } else {
+          return ResponseMessage.success('Doğrulama kodu gönderildi');
+        }
       } else {
-        final Map<String, dynamic> errorData = jsonDecode(response.body);
-        return ResponseMessage.error(
-          errorData['message'] ?? 'Kod gönderme işlemi başarısız oldu.',
-        );
+        final message = response.data?['message'] ?? 'Kod gönderme işlemi başarısız oldu.';
+        return ResponseMessage.error(message);
       }
+    } on DioException catch (e) {
+      debugPrint('Dio hatası: ${e.message}');
+      debugPrint('Response: ${e.response?.data}');
+      
+      String errorMsg = 'Bağlantı hatası';
+      if (e.response?.data != null && e.response?.data is Map) {
+        errorMsg = e.response?.data['message'] ?? errorMsg;
+      }
+      return ResponseMessage.error(errorMsg);
     } catch (e) {
+      debugPrint('Genel hata: $e');
       return ResponseMessage.error('Bağlantı hatası: $e');
     }
   }
