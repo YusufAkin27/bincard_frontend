@@ -7,9 +7,9 @@ enum NewsType {
   GUNCELLEME,      // Yazılım veya sistem güncellemeleri
   UYARI,           // Acil veya önemli durum bildirimleri
   ETKINLIK,        // Etkinlik duyuruları
-  BASIN_BULTENI,   // Medyaya yönelik açıklamalar
+  BASIN_BULTENI,   // Medyaya yönelik açıklamalarß
   GUVENLIK,        // Güvenlik ile ilgili duyurular
-  OZELLIK,         // Yeni özellik tanıtımları
+  OZELLIK,         // Yeni özellik tanıtımlarıß
   HATIRLATMA,      // Son tarih veya yapılacak işlem bildirimi
   KESINTI          // Hizmet kesintisi duyuruları
 }

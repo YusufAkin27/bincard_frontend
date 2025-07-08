@@ -10,13 +10,17 @@ import '../models/auth_model.dart';
 import 'package:http/http.dart' as http;
 import '../main.dart'; // navigatorKey için ekledik
 import '../constants/api_constants.dart';
+import '../routes.dart'; // AppRoutes için eklendi
+import 'package:shared_preferences/shared_preferences.dart'; // SharedPreferences için import eklendi
 
 class TokenService {
   final SecureStorageService _secureStorage = SecureStorageService();
   final Dio _dio = Dio();
   
-  // Otomatik token yenileme için threshold (saniye)
-  static const int _tokenRenewalThreshold = 30;
+  // Token yenileme için ayarlar
+  static const int _tokenRenewalThreshold = 10; // Tokenın süresinin dolmasına kaç saniye kala yenileme yapılacak (10 saniye)
+  static const int _minRenewalInterval = 300; // İki yenileme arasında geçmesi gereken minimum süre (300 saniye = 5 dakika)
+  static const String _lastTokenRenewalTimeKey = 'last_token_renewal_time'; // Son token yenileme zamanını kaydetmek için kullanılacak key
   
   // Singleton pattern
   static final TokenService _instance = TokenService._internal();
@@ -135,6 +139,9 @@ class TokenService {
           await _secureStorage.setAccessToken(accessToken.token);
           await _secureStorage.setAccessTokenExpiry(accessToken.expiredAt.toIso8601String());
           
+          // Son token yenileme zamanını kaydet
+          await _saveLastTokenRenewalTime();
+          
           debugPrint('Token başarıyla yenilendi, süresi: ${accessToken.expiredAt}');
           return true;
         } catch (e) {
@@ -182,15 +189,66 @@ class TokenService {
     }
   }
   
+  // Son token yenileme zamanını al
+  Future<DateTime?> _getLastTokenRenewalTime() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastRenewalTimeStr = prefs.getString(_lastTokenRenewalTimeKey);
+      
+      if (lastRenewalTimeStr != null) {
+        final lastRenewalTime = DateTime.parse(lastRenewalTimeStr);
+        debugPrint('Son token yenileme zamanı: $lastRenewalTimeStr');
+        return lastRenewalTime;
+      }
+      debugPrint('Son token yenileme zamanı bulunamadı');
+      return null;
+    } catch (e) {
+      debugPrint('Son token yenileme zamanı alınırken hata: $e');
+      return null;
+    }
+  }
+  
+  // Son token yenileme zamanını kaydet
+  Future<void> _saveLastTokenRenewalTime() async {
+    try {
+      final now = DateTime.now();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_lastTokenRenewalTimeKey, now.toIso8601String());
+      debugPrint('Son token yenileme zamanı kaydedildi: ${now.toIso8601String()}');
+    } catch (e) {
+      debugPrint('Son token yenileme zamanı kaydedilirken hata: $e');
+    }
+  }
+  
   // Access token'ın süresi dolmak üzere mi kontrol et
   Future<bool> isAccessTokenAboutToExpire() async {
     try {
+      // Önce mevcut sayfayı kontrol et - güvenli sayfalarda token yenileme yapmayalım
+      final currentRoute = getCurrentRoute();
+      if (isTokenExemptRoute(currentRoute)) {
+        debugPrint('Güvenli sayfa: $currentRoute. Token kontrolü yapılmıyor.');
+        return false; // Güvenli sayfalarda token yenileme yapmıyoruz
+      }
+      
       // Access token'ı doğrudan al
       final accessToken = await _secureStorage.getAccessToken();
       
       if (accessToken == null) {
         debugPrint('Access token bulunamadı, yenileme gerekiyor');
         return true; // Eğer token yoksa, yenileme yapmalıyız
+      }
+      
+      // Son token yenileme zamanını kontrol et
+      final lastRenewalTime = await _getLastTokenRenewalTime();
+      if (lastRenewalTime != null) {
+        final now = DateTime.now();
+        final timeSinceLastRenewal = now.difference(lastRenewalTime).inSeconds;
+        
+        // Eğer son yenilemeden beri minimum süre geçmediyse, yenileme yapma
+        if (timeSinceLastRenewal < _minRenewalInterval) {
+          debugPrint('Son token yenilemeden beri sadece $timeSinceLastRenewal saniye geçti (minimum: $_minRenewalInterval). Yenileme atlanıyor.');
+          return false;
+        }
       }
       
       // JWT token'ı decode et ve süresi dolmuş mu kontrol et
@@ -209,10 +267,19 @@ class TokenService {
         // Token'ın süresinin dolmasına kalan süre (saniye cinsinden)
         final remainingSeconds = expiryTime.difference(now).inSeconds;
         
-        debugPrint('Access token süresinin dolmasına $remainingSeconds saniye kaldı');
+        // Debug log ile kalan süreyi bildir (yalnızca kalan süre 2 dakikadan az olduğunda)
+        if (remainingSeconds <= 120) {
+          debugPrint('Access token süresinin dolmasına $remainingSeconds saniye kaldı (threshold: $_tokenRenewalThreshold)');
+        }
         
-        // Eğer kalan süre 30 saniyeden azsa, token'ı yenilememiz gerekiyor
-        return remainingSeconds <= 30;
+        // Eğer kalan süre belirlenen threshold'dan azsa, token'ı yenilememiz gerekiyor
+        final shouldRefresh = remainingSeconds <= _tokenRenewalThreshold;
+        
+        if (shouldRefresh) {
+          debugPrint('Access token süresi eşiğine ulaşıldı (kalan süre: $remainingSeconds saniye, eşik: $_tokenRenewalThreshold saniye), yenileme gerekiyor');
+        }
+        
+        return shouldRefresh;
       } catch (e) {
         debugPrint('JWT token decode hatası: $e');
         return true; // Hata durumunda güvenli tarafta kal ve yenileme yap
@@ -306,6 +373,14 @@ class TokenService {
       final currentRoute = getCurrentRoute();
       if (isTokenExemptRoute(currentRoute)) {
         debugPrint('Token kontrolünden muaf sayfa: $currentRoute, token kontrolü yapılmıyor');
+        
+        // Sadece Authorization header'ını ekleyelim (eğer varsa), token yenileme yapmadan
+        final accessToken = await _secureStorage.getAccessToken();
+        if (accessToken != null) {
+          options.headers['Authorization'] = 'Bearer $accessToken';
+          debugPrint('Muaf sayfada sadece mevcut token eklenip devam ediliyor');
+        }
+        
         return handler.next(options);
       }
       
@@ -327,22 +402,33 @@ class TokenService {
         final isAboutToExpire = await isAccessTokenAboutToExpire();
         
         if (isAboutToExpire) {
-          debugPrint('Access token süresi dolmak üzere, yenileniyor...');
-          // Token'ı yenile
-          final refreshed = await refreshAccessToken();
+          // Son yenilemeden beri yeterli süre geçmiş mi kontrol et
+          final canRefreshNow = await _hasEnoughTimePassed();
           
-          if (!refreshed) {
-            // Sessizce login sayfasına yönlendir, hata gösterme
-            _navigateToLogin();
-            return handler.reject(
-              DioException(
-                requestOptions: options,
-                type: DioExceptionType.cancel,
-              ),
-            );
+          if (canRefreshNow) {
+            debugPrint('Access token süresi dolmak üzere, yenileniyor...');
+            // Token'ı yenile
+            final refreshed = await refreshAccessToken();
+            
+            if (refreshed) {
+              debugPrint('Token başarıyla yenilendi, isteğe devam ediliyor');
+              // Son token yenileme zamanını kaydet (başarılı yenileme sonrası)
+              await _saveLastTokenRenewalTime();
+            } else {
+              // Sessizce login sayfasına yönlendir, hata gösterme
+              _navigateToLogin();
+              return handler.reject(
+                DioException(
+                  requestOptions: options,
+                  type: DioExceptionType.cancel,
+                ),
+              );
+            }
+          } else {
+            debugPrint('Token yenileme gerekiyor, ancak son yenilemeden beri yeterli süre geçmediği için atlanıyor');
           }
-          
-          debugPrint('Token başarıyla yenilendi, isteğe devam ediliyor');
+        } else {
+          debugPrint('Token hala geçerli, yenileme gerekmiyor');
         }
         
         // İsteğe access token ekle
@@ -640,4 +726,54 @@ class TokenService {
       }
     }
   }
-} 
+
+  // Son yenilemeden sonra geçen süreyi kontrol et
+  Future<bool> _hasEnoughTimePassed() async {
+    final lastRenewalTime = await _getLastTokenRenewalTime();
+    if (lastRenewalTime == null) {
+      debugPrint('Son token yenileme zamanı bulunamadı, ilk defa yenileme yapılacak');
+      return true; // Eğer daha önce bir yenileme yapılmamışsa, yenilemeye izin ver
+    }
+    
+    final now = DateTime.now();
+    final timeSinceLastRenewal = now.difference(lastRenewalTime).inSeconds;
+    
+    // Eğer son yenilemeden beri minimum süre geçmediyse, yenileme yapma
+    if (timeSinceLastRenewal < _minRenewalInterval) {
+      debugPrint('Son token yenilemeden beri sadece $timeSinceLastRenewal saniye geçti (minimum: $_minRenewalInterval). Yenileme için henüz erken.');
+      return false;
+    }
+    
+    debugPrint('Son token yenilemeden beri $timeSinceLastRenewal saniye geçti, yenileme yapılabilir');
+    return true;
+  }
+
+  // Mevcut sayfayı al
+  String getCurrentRoute() {
+    if (navigatorKey.currentContext != null) {
+      final route = ModalRoute.of(navigatorKey.currentContext!);
+      if (route != null) {
+        return route.settings.name ?? '';
+      }
+    }
+    return '';
+  }
+  
+  // Token kontrolünden muaf sayfaları kontrol et
+  bool isTokenExemptRoute(String route) {
+    // Muaf sayfalar listesi
+    final exemptRoutes = [
+      AppRoutes.login,                      // '/login'
+      AppRoutes.refreshLogin,               // '/refresh-login'
+      AppRoutes.register,                   // '/register'
+      AppRoutes.verification,               // '/verification'
+      AppRoutes.forgotPassword,             // '/forgot-password'
+      AppRoutes.resetPassword,              // '/reset-password'
+      AppRoutes.loginSmsVerify,             // '/login-sms-verify'
+      AppRoutes.forgotPasswordSmsVerify,    // '/forgot-password-sms-verify'
+      // Ek muaf sayfalar buraya eklenebilir
+    ];
+    
+    return exemptRoutes.contains(route);
+  }
+}
