@@ -20,7 +20,13 @@ import 'map_screen.dart';
 import 'card_renewal_screen.dart';
 import '../services/secure_storage_service.dart';
 import '../services/user_service.dart';
+import '../services/news_service.dart';
 import '../models/user_model.dart';
+import '../models/news/user_news_dto.dart';
+import '../models/news/platform_type.dart';
+import '../models/news/news_type.dart';
+import '../models/news/news_priority.dart';
+import 'news_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -35,6 +41,8 @@ class _HomeScreenState extends State<HomeScreen>
   late AnimationController _animationController;
   late Animation<double> _animation;
   String _userName = ""; // Kullanıcı adını tutacak değişken
+  bool _isLoadingNews = false;
+  List<UserNewsDTO> _newsList = [];
   
   // Kullanıcının kayıtlı kartları
   final List<Map<String, dynamic>> _cards = [
@@ -74,6 +82,31 @@ class _HomeScreenState extends State<HomeScreen>
     
     // Kullanıcı adını al
     _loadUserName();
+    
+    // Haberleri yükle
+    _loadNews();
+  }
+  
+  // Haberleri servis üzerinden al
+  Future<void> _loadNews() async {
+    setState(() {
+      _isLoadingNews = true;
+    });
+    
+    try {
+      final newsService = NewsService();
+      final news = await newsService.getActiveNews(platform: PlatformType.MOBILE);
+      
+      setState(() {
+        _newsList = news;
+        _isLoadingNews = false;
+      });
+    } catch (e) {
+      debugPrint('Haberler yüklenirken hata: $e');
+      setState(() {
+        _isLoadingNews = false;
+      });
+    }
   }
   
   // Kullanıcı adını güvenli depolamadan yükle
@@ -108,6 +141,30 @@ class _HomeScreenState extends State<HomeScreen>
       }
     }
   }
+  
+  // Kullanıcının haberlerini yükle
+  Future<void> _loadUserNews() async {
+    setState(() {
+      _isLoadingNews = true;
+    });
+    
+    try {
+      final newsService = NewsService();
+      //final userId = await (SecureStorageService().getUserId() ?? '');
+      //final news = await newsService.getUserNews(userId: userId);
+      final news = await newsService.getActiveNews(platform: PlatformType.MOBILE);
+      
+      setState(() {
+        _newsList = news;
+      });
+    } catch (e) {
+      debugPrint('Haberler yüklenirken hata: $e');
+    } finally {
+      setState(() {
+        _isLoadingNews = false;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -136,6 +193,8 @@ class _HomeScreenState extends State<HomeScreen>
                   _buildQuickActionsSection(),
                   const SizedBox(height: 24),
                   _buildMainServicesGrid(),
+                  const SizedBox(height: 24),
+                  _buildNewsSliderSection(),
                   const SizedBox(height: 80), // Bottom padding for scroll
                 ]),
               ),
@@ -143,7 +202,40 @@ class _HomeScreenState extends State<HomeScreen>
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomNavigationBar(),
+      bottomNavigationBar: BottomAppBar(
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 8,
+        elevation: 8,
+        child: SizedBox(
+          height: 60,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildNavItem(
+                icon: Icons.home,
+                label: 'Ana Sayfa',
+                index: 0,
+              ),
+              _buildNavItem(
+                icon: Icons.credit_card,
+                label: 'Kartlarım',
+                index: 1,
+              ),
+              const SizedBox(width: 40), // Orta boşluk (FAB için)
+              _buildNavItem(
+                icon: Icons.account_balance_wallet,
+                label: 'Cüzdan',
+                index: 2,
+              ),
+              _buildNavItem(
+                icon: Icons.person,
+                label: 'Profil',
+                index: 3,
+              ),
+            ],
+          ),
+        ),
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           // QR Kod tarama sayfasına yönlendir
@@ -410,6 +502,65 @@ class _HomeScreenState extends State<HomeScreen>
             ),
           ),
         ),
+      ),
+    );
+  }
+  
+  // Bottom navigation bar için bir öğe oluşturur
+  Widget _buildNavItem({
+    required IconData icon,
+    required String label,
+    required int index,
+  }) {
+    final isSelected = _selectedIndex == index;
+    
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _selectedIndex = index;
+        });
+        
+        if (index == 1) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const SavedCardsScreen(),
+            ),
+          );
+        } else if (index == 2) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const WalletScreen(),
+            ),
+          );
+        } else if (index == 3) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ProfileScreen(),
+            ),
+          );
+        }
+      },
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            color: isSelected ? AppTheme.primaryColor : Colors.grey,
+            size: 24,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              color: isSelected ? AppTheme.primaryColor : Colors.grey,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -922,98 +1073,280 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildBottomNavigationBar() {
-    return BottomAppBar(
-      shape: const CircularNotchedRectangle(),
-      notchMargin: 8,
-      elevation: 8,
-      child: SizedBox(
-        height: 60,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _buildNavItem(
-              icon: Icons.home,
-              label: 'Ana Sayfa',
-              index: 0,
-            ),
-            _buildNavItem(
-              icon: Icons.credit_card,
-              label: 'Kartlarım',
-              index: 1,
-            ),
-            const SizedBox(width: 40), // Orta boşluk (FAB için)
-            _buildNavItem(
-              icon: Icons.account_balance_wallet,
-              label: 'Cüzdan',
-              index: 2,
-            ),
-            _buildNavItem(
-              icon: Icons.person,
-              label: 'Profil',
-              index: 3,
-            ),
-          ],
+  // Haber slider bölümü
+  Widget _buildNewsSliderSection() {
+    return SlideTransition(
+      position: Tween<Offset>(
+        begin: const Offset(0, 0.3),
+        end: Offset.zero,
+      ).animate(
+        CurvedAnimation(
+          parent: _animationController,
+          curve: const Interval(0.5, 1.0, curve: Curves.easeOut),
         ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Güncel Haberler',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const NewsScreen(),
+                    ),
+                  );
+                },
+                child: Text(
+                  'Tümünü Göster',
+                  style: TextStyle(
+                    color: AppTheme.primaryColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _isLoadingNews
+              ? _buildNewsLoadingIndicator()
+              : _newsList.isEmpty
+                  ? _buildEmptyNewsWidget()
+                  : SizedBox(
+                      height: 220,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _newsList.length,
+                        itemBuilder: (context, index) {
+                          return _buildNewsCard(_newsList[index]);
+                        },
+                      ),
+                    ),
+        ],
       ),
     );
   }
 
-  Widget _buildNavItem({
-    required IconData icon,
-    required String label,
-    required int index,
-  }) {
-    final isSelected = _selectedIndex == index;
-    
-    return InkWell(
-      onTap: () {
-        setState(() {
-          _selectedIndex = index;
-        });
-        
-        if (index == 1) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const SavedCardsScreen(),
-            ),
-          );
-        } else if (index == 2) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const WalletScreen(),
-            ),
-          );
-        } else if (index == 3) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const ProfileScreen(),
-            ),
-          );
-        }
-      },
+  Widget _buildNewsLoadingIndicator() {
+    return SizedBox(
+      height: 220,
+      child: Center(
+        child: CircularProgressIndicator(color: AppTheme.primaryColor),
+      ),
+    );
+  }
+
+  Widget _buildEmptyNewsWidget() {
+    return Container(
+      height: 220,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            icon,
-            color: isSelected ? AppTheme.primaryColor : Colors.grey,
-            size: 24,
+            Icons.newspaper_outlined,
+            size: 60,
+            color: AppTheme.textSecondaryColor.withOpacity(0.4),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 16),
           Text(
-            label,
+            'Haber bulunamadı',
             style: TextStyle(
-              fontSize: 10,
-              color: isSelected ? AppTheme.primaryColor : Colors.grey,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: AppTheme.textSecondaryColor,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: _loadNews,
+            child: Text(
+              'Yenile',
+              style: TextStyle(
+                color: AppTheme.primaryColor,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildNewsCard(UserNewsDTO news) {
+    final isImportant = news.priority.toString().contains('HIGH') || news.priority.toString().contains('URGENT');
+    
+    return Container(
+      width: MediaQuery.of(context).size.width * 0.75,
+      margin: const EdgeInsets.only(right: 12),
+      child: Card(
+        elevation: 4,
+        shadowColor: Colors.black.withOpacity(0.2),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: InkWell(
+          onTap: () {
+            _showNewsDetails(news);
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
+                child: Container(
+                  height: 120,
+                  width: double.infinity,
+                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  child: news.image != null && news.image!.isNotEmpty
+                      ? Image.network(
+                          news.image!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Center(
+                              child: Icon(
+                                _getCategoryIcon(news.type),
+                                size: 50,
+                                color: AppTheme.primaryColor.withOpacity(0.5),
+                              ),
+                            );
+                          },
+                        )
+                      : Center(
+                          child: Icon(
+                            _getCategoryIcon(news.type),
+                            size: 50,
+                            color: AppTheme.primaryColor.withOpacity(0.5),
+                          ),
+                        ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _getCategoryColor(news.type).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            _getCategoryName(news.type),
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: _getCategoryColor(news.type),
+                            ),
+                          ),
+                        ),
+                        if (isImportant) ...[
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.star,
+                            color: AppTheme.accentColor,
+                            size: 12,
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      news.title,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showNewsDetails(UserNewsDTO news) {
+    // Haber görüntüleme kaydını tut
+    NewsService().recordNewsView(news.id);
+    
+    // Haber detayına yönlendir
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => NewsDetailScreen(news: news),
+      ),
+    );
+  }
+
+  IconData _getCategoryIcon(NewsType type) {
+    switch (type) {
+      case NewsType.DUYURU:
+        return Icons.campaign;
+      case NewsType.KAMPANYA:
+        return Icons.engineering;
+      case NewsType.BAKIM:
+        return Icons.trending_up;
+      case NewsType.BILGILENDIRME:
+        return Icons.devices;
+      case NewsType.GUNCELLEME:
+        return Icons.support_agent;
+      default:
+        return Icons.article;
+    }
+  }
+
+  Color _getCategoryColor(NewsType type) {
+    switch (type) {
+      case NewsType.DUYURU:
+        return AppTheme.primaryColor;
+      case NewsType.KAMPANYA:
+        return AppTheme.infoColor;
+      case NewsType.BAKIM:
+        return AppTheme.successColor;
+      case NewsType.BILGILENDIRME:
+        return AppTheme.accentColor;
+      case NewsType.GUNCELLEME:
+        return Colors.purple;
+      default:
+        return AppTheme.textSecondaryColor;
+    }
+  }
+
+  String _getCategoryName(NewsType type) {
+    return type.name;
   }
 }

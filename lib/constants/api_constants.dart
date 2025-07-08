@@ -1,4 +1,3 @@
-
 class ApiConstants {
   // Base URL for API requests
   // Mevcut API URL'sini kullanıyoruz
@@ -32,6 +31,14 @@ class ApiConstants {
   static String get updateProfileEndpoint => '/user/update-profile';
   static String get verifyPhoneEndpoint => '/user/verify-phone';
   static String get changePasswordEndpoint => '/user/change-password';
+  
+  // News endpoints
+  static String get newsBaseEndpoint => '/news';
+  static String get newsActiveEndpoint => '/news/active';
+  static String get newsByCategoryEndpoint => '/news/by-category';
+  static String get newsViewHistoryEndpoint => '/news/view-history';
+  static String get newsSuggestedEndpoint => '/news/suggested';
+  static String newsViewEndpoint(String newsId) => '/news/$newsId/view';
   
   // Content Type ve diğer header'lar
   static const String contentType = 'application/json';

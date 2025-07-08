@@ -328,7 +328,11 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.credit_card, size: 80, color: Colors.white),
+            Image.asset(
+              'assets/images/logo2.png',
+              width: 120,
+              height: 120,
+            ),
             const SizedBox(height: 24),
             Text(
               AppConstants.appName,

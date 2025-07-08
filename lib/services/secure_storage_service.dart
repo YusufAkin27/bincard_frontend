@@ -20,6 +20,7 @@ class SecureStorageService {
   static const String _userFirstNameKey = 'user_first_name';
   static const String _userLastNameKey = 'user_last_name';
   static const String _userPhoneKey = 'user_phone'; // Telefon numarası için anahtar
+  static const String _userIdKey = 'user_id'; // Kullanıcı ID'si için anahtar
 
   // Singleton pattern
   static final SecureStorageService _instance = SecureStorageService._internal();
@@ -140,5 +141,15 @@ class SecureStorageService {
   // Kullanıcı telefon numarasını al
   Future<String?> getUserPhone() async {
     return await _secureStorage.read(key: _userPhoneKey);
+  }
+  
+  // Kullanıcı ID'sini kaydet
+  Future<void> setUserId(String userId) async {
+    await _secureStorage.write(key: _userIdKey, value: userId);
+  }
+  
+  // Kullanıcı ID'sini al
+  Future<String?> getUserId() async {
+    return await _secureStorage.read(key: _userIdKey);
   }
 }
