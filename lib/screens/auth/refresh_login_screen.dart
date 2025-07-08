@@ -691,7 +691,7 @@ class _RefreshLoginScreenState extends State<RefreshLoginScreen>
   Widget _buildLoginFormContent() {
     return Padding(
       padding: EdgeInsets.only(
-        top: MediaQuery.of(context).size.height * 0.48, // Mavi alan ile form arasındaki mesafeyi artırdım (0.42 -> 0.48)
+        top: MediaQuery.of(context).size.height * 0.40, // Form alanını yukarı taşıdım (0.48 -> 0.40)
         left: 24,
         right: 24,
       ),
