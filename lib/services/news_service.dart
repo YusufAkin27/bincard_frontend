@@ -39,8 +39,19 @@ class NewsService {
       
       if (response.statusCode == 200 && response.data != null) {
         final responseData = response.data;
+        debugPrint('🔍 NewsService API Response: $responseData');
+        
         if (responseData['success'] == true && responseData['data'] != null) {
           final List<dynamic> newsItems = responseData['data'];
+          debugPrint('🔍 NewsService: ${newsItems.length} haber bulundu');
+          
+          // Her haberin içeriğini logla
+          for (var item in newsItems) {
+            debugPrint('🔍 Haber JSON: $item');
+            debugPrint('🔍 Haber başlık: ${item['title']}');
+            debugPrint('🔍 Video alanları: videoUrl=${item['videoUrl']}, video_url=${item['video_url']}, video=${item['video']}, media=${item['media']}');
+          }
+          
           return newsItems.map((item) => UserNewsDTO.fromJson(item)).toList();
         }
       }

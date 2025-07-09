@@ -27,6 +27,7 @@ import 'screens/virtual_card_screen.dart';
 import 'screens/search_screen.dart';
 import 'screens/feedback_screen.dart';
 import 'screens/report_problem_screen.dart';
+import 'screens/video_player_screen.dart';
 
 // Kimlik doğrulama ekranları
 import 'screens/auth/login_screen.dart';
@@ -71,6 +72,7 @@ class AppRoutes {
   static const String virtualCard = '/virtual-card';
   static const String feedback = '/feedback';
   static const String reportProblem = '/report-problem';
+  static const String videoPlayer = '/video-player';
 
   // Tüm route'ları içeren map
   static final routes = <String, WidgetBuilder>{
@@ -103,6 +105,7 @@ class AppRoutes {
     virtualCard: (context) => const VirtualCardScreen(),
     feedback: (context) => const FeedbackScreen(),
     reportProblem: (context) => const ReportProblemScreen(),
+    videoPlayer: (context) => const VideoPlayerScreen(),
   };
 
   // Parametre gerektiren route'lar için generate metodu
@@ -199,6 +202,11 @@ class AppRoutes {
                 busNumber: args?['busNumber'],
                 busRoute: args?['busRoute'],
               ),
+        );
+
+      case videoPlayer:
+        return MaterialPageRoute(
+          builder: (context) => const VideoPlayerScreen(),
         );
 
       default:

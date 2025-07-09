@@ -3,8 +3,10 @@ import '../theme/app_theme.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../models/news/user_news_dto.dart';
 import '../models/news/news_type.dart';
+import '../models/news/news_priority.dart';
 import '../models/news/platform_type.dart';
 import '../services/news_service.dart';
+import '../widgets/video_player_widget.dart';
 import 'news_detail_screen.dart';
 
 class NewsScreen extends StatefulWidget {
@@ -22,8 +24,9 @@ class _NewsScreenState extends State<NewsScreen>
   
   // Filtrelenmiş haber listeleri için getter'lar
   List<UserNewsDTO> get _importantNews => _allNews
-      .where((news) => news.priority.toString().contains('HIGH') || 
-                        news.priority.toString().contains('URGENT'))
+      .where((news) => news.priority == NewsPriority.YUKSEK || 
+                        news.priority == NewsPriority.COK_YUKSEK ||
+                        news.priority == NewsPriority.KRITIK)
       .toList();
   List<UserNewsDTO> get _announcements => _allNews
       .where((news) => news.type == NewsType.DUYURU)
@@ -75,13 +78,34 @@ class _NewsScreenState extends State<NewsScreen>
       final newsService = NewsService();
       final news = await newsService.getActiveNews(platform: PlatformType.MOBILE);
       
-      setState(() {
-        _allNews = news;
-        _isLoading = false;
-      });
+      debugPrint('📰 API\'dan gelen haber sayısı: ${news.length}');
+      for (var newsItem in news) {
+        debugPrint('📰 Haber: ${newsItem.title} - Video: ${newsItem.videoUrl}');
+      }
+      
+      // API'dan veri gelmediyse demo veri ekle
+      if (news.isEmpty) {
+        debugPrint('📰 API\'dan veri gelmedi, demo data kullanılıyor');
+        final demoNews = _getDemoNewsWithVideo();
+        debugPrint('📰 Demo haber sayısı: ${demoNews.length}');
+        setState(() {
+          _allNews = demoNews;
+          _isLoading = false;
+        });
+      } else {
+        debugPrint('📰 API\'dan gelen veriler kullanılıyor');
+        setState(() {
+          _allNews = news;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      debugPrint('Haberler yüklenirken hata: $e');
+      debugPrint('❌ Haberler yüklenirken hata: $e');
+      // Hata durumunda demo veri göster
+      debugPrint('📰 Hata nedeniyle demo data kullanılıyor');
+      final demoNews = _getDemoNewsWithVideo();
       setState(() {
+        _allNews = demoNews;
         _isLoading = false;
       });
     }
@@ -93,9 +117,8 @@ class _NewsScreenState extends State<NewsScreen>
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         backgroundColor: AppTheme.primaryColor,
-        title: const Text('Haberler ve Duyurular', style: TextStyle(color: Colors.white)),
+        title: const Text('Haberler ve Duyurular'),
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.white,
@@ -103,10 +126,7 @@ class _NewsScreenState extends State<NewsScreen>
           labelStyle: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
           ),
-          unselectedLabelColor: Colors.white70,
-          labelColor: Colors.white,
           tabs: const [
             Tab(text: 'Tümü'),
             Tab(text: 'Önemli'),
@@ -178,8 +198,9 @@ class _NewsScreenState extends State<NewsScreen>
   }
 
   Widget _buildNewsCard(UserNewsDTO news) {
-    final bool isImportant = news.priority.toString().contains('HIGH') || 
-                             news.priority.toString().contains('URGENT');
+    final bool isImportant = news.priority == NewsPriority.YUKSEK || 
+                             news.priority == NewsPriority.COK_YUKSEK ||
+                             news.priority == NewsPriority.KRITIK;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -199,27 +220,7 @@ class _NewsScreenState extends State<NewsScreen>
                 height: 160,
                 width: double.infinity,
                 color: AppTheme.primaryColor.withOpacity(0.1),
-                child: news.image != null && news.image!.isNotEmpty
-                    ? Image.network(
-                        news.image!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Center(
-                            child: Icon(
-                              _getCategoryIcon(news.type),
-                              size: 60,
-                              color: AppTheme.primaryColor.withOpacity(0.5),
-                            ),
-                          );
-                        },
-                      )
-                    : Center(
-                        child: Icon(
-                          _getCategoryIcon(news.type),
-                          size: 60,
-                          color: AppTheme.primaryColor.withOpacity(0.5),
-                        ),
-                      ),
+                child: _buildNewsMedia(news),
               ),
             ),
             Padding(
@@ -344,9 +345,104 @@ class _NewsScreenState extends State<NewsScreen>
     // Haber görüntüleme kaydını tut
     NewsService().recordNewsView(news.id);
     
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => NewsDetailScreen(news: news)),
+    // Video içeren bir haber için, eğer thumbnail varsa, video oynatıcıyı açabiliriz
+    if (news.videoUrl != null && news.videoUrl!.isNotEmpty && 
+        news.thumbnailUrl != null && news.thumbnailUrl!.isNotEmpty) {
+      _playVideo(news);
+    } else {
+      // Normal haber detay sayfasına git
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => NewsDetailScreen(news: news)),
+      );
+    }
+  }
+  
+  void _playVideo(UserNewsDTO news) {
+    // Kullanıcıya normal detay sayfası veya video oynatıcı seçeneği sun
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.article),
+                title: const Text('Haber Detayını Görüntüle'),
+                onTap: () {
+                  Navigator.pop(context); // Sheet kapat
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => NewsDetailScreen(news: news)),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.play_circle_filled),
+                title: const Text('Videoyu Oynat'),
+                onTap: () {
+                  Navigator.pop(context); // Sheet kapat
+                  
+                  // Video oynatıcıyı tam ekran olarak aç
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (context) => Container(
+                      height: MediaQuery.of(context).size.height * 0.75,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                      ),
+                      child: Column(
+                        children: [
+                          // Kapatma çubuğu
+                          Container(
+                            width: 50,
+                            height: 5,
+                            margin: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[300],
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          // Video başlığı
+                          Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Text(
+                              news.title,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          // Video player
+                          Expanded(
+                            child: VideoPlayerWidget(
+                              videoUrl: news.videoUrl!,
+                              autoPlay: true,
+                              looping: false,
+                              showControls: true,
+                              fitToScreen: true,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -386,5 +482,257 @@ class _NewsScreenState extends State<NewsScreen>
   
   String _getCategoryName(NewsType type) {
     return type.name;
+  }
+
+  Widget _buildNewsMedia(UserNewsDTO news) {
+    // Debug: Video URL'sini konsola yazdır
+    debugPrint('📹 News ID: ${news.id}, Title: ${news.title}');
+    debugPrint('📹 Video URL: ${news.videoUrl}');
+    debugPrint('📹 Image URL: ${news.image}');
+    debugPrint('📹 Thumbnail URL: ${news.thumbnailUrl}');
+    
+    // Video varsa thumbnail veya video player göster
+    if (news.videoUrl != null && news.videoUrl!.isNotEmpty) {
+      // Thumbnail varsa göster, yoksa video player göster
+      if (news.thumbnailUrl != null && news.thumbnailUrl!.isNotEmpty) {
+        debugPrint('🖼️ Video thumbnail gösteriliyor: ${news.thumbnailUrl}');
+        return Stack(
+          children: [
+            // Thumbnail göster
+            Image.network(
+              news.thumbnailUrl!,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: 200,
+              errorBuilder: (context, error, stackTrace) {
+                debugPrint('❌ Thumbnail yükleme hatası: $error');
+                return Container(
+                  height: 200,
+                  color: Colors.grey[300],
+                  child: const Center(
+                    child: Icon(Icons.movie, size: 60, color: Colors.grey),
+                  ),
+                );
+              },
+            ),
+            // Video play butonu overlay
+            Positioned.fill(
+              child: Center(
+                child: Icon(
+                  Icons.play_circle_fill,
+                  color: Colors.white.withOpacity(0.8),
+                  size: 60,
+                ),
+              ),
+            ),
+            // Video etiketi
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.play_circle_filled,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      'Video',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      } else {
+        // Thumbnail yoksa video player göster
+        debugPrint('📹 Video player gösteriliyor: ${news.videoUrl}');
+        return Stack(
+          children: [
+            VideoPlayerWidget(
+              videoUrl: news.videoUrl!,
+              autoPlay: false,
+              looping: false,
+              showControls: true,
+              fitToScreen: true,
+              maxHeight: 250, // Liste için maksimum yükseklik
+              minHeight: 150, // Liste için minimum yükseklik
+            ),
+            // Video işaret overlay'ı
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.play_circle_filled,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      'Video',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      }
+    }
+    
+    // Video yoksa resim göster
+    if (news.image != null && news.image!.isNotEmpty) {
+      debugPrint('📷 Resim gösteriliyor: ${news.image}');
+      return Image.network(
+        news.image!,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          debugPrint('❌ Resim yükleme hatası: $error');
+          return Center(
+            child: Icon(
+              _getCategoryIcon(news.type),
+              size: 60,
+              color: AppTheme.primaryColor.withOpacity(0.5),
+            ),
+          );
+        },
+      );
+    }
+    
+    // Ne video ne de resim varsa ikon göster
+    debugPrint('🎯 Ne video ne resim var, ikon gösteriliyor');
+    return Center(
+      child: Icon(
+        _getCategoryIcon(news.type),
+        size: 60,
+        color: AppTheme.primaryColor.withOpacity(0.5),
+      ),
+    );
+  }
+
+  List<UserNewsDTO> _getDemoNewsWithVideo() {
+    return [
+      // Kullanıcının eklediği "deneme haber" video haberi
+      UserNewsDTO(
+        id: 0,
+        title: 'deneme haber',
+        content: 'video deneme',
+        image: null,
+        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+        thumbnailUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
+        likedByUser: false,
+        viewedByUser: false,
+        priority: NewsPriority.YUKSEK,
+        type: NewsType.DUYURU,
+        createdAt: DateTime.now(),
+        summary: 'Video deneme haberi',
+      ),
+      
+      // Video içeren haber
+      UserNewsDTO(
+        id: 1,
+        title: 'Şehir Kartı Tanıtım Videosu',
+        content: 'Şehir kartınızı nasıl kullanacağınızı anlatan detaylı video rehberimizi izleyebilirsiniz. Bu videoda kart yükleme, otobüs kullanımı ve mobil uygulamanın tüm özelliklerini öğreneceksiniz.',
+        image: null,
+        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+        thumbnailUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/ElephantsDream.jpg',
+        likedByUser: false,
+        viewedByUser: false,
+        priority: NewsPriority.YUKSEK,
+        type: NewsType.DUYURU,
+        createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+        summary: 'Şehir kartı kullanım rehberi videosu',
+      ),
+      
+      // Resim içeren haber
+      UserNewsDTO(
+        id: 2,
+        title: 'Yeni Otobüs Hatları Açıldı',
+        content: 'Şehrimizde toplu taşıma ağını genişletmek amacıyla 5 yeni otobüs hattı hizmete açılmıştır. Bu hatlar ile daha fazla mahallimize ulaşım sağlanacaktır.',
+        image: 'https://picsum.photos/400/200?random=1',
+        videoUrl: null,
+        likedByUser: true,
+        viewedByUser: true,
+        priority: NewsPriority.NORMAL,
+        type: NewsType.DUYURU,
+        createdAt: DateTime.now().subtract(const Duration(days: 1)),
+        summary: 'Yeni otobüs hatları',
+      ),
+      
+      // Video içeren kampanya haberi
+      UserNewsDTO(
+        id: 3,
+        title: 'Yaz Kampanyası Tanıtımı',
+        content: 'Bu yaz için özel kampanyamızı tanıtan video içeriğimizi izleyerek avantajlardan yararlanabilirsiniz. Kampanya detayları ve nasıl katılacağınız videoda anlatılıyor.',
+        image: null,
+        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
+        thumbnailUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerFun.jpg',
+        likedByUser: false,
+        viewedByUser: false,
+        priority: NewsPriority.YUKSEK,
+        type: NewsType.KAMPANYA,
+        createdAt: DateTime.now().subtract(const Duration(hours: 5)),
+        summary: 'Yaz kampanyası video tanıtımı',
+      ),
+      
+      // Sadece metin içeren haber
+      UserNewsDTO(
+        id: 4,
+        title: 'Sistem Bakım Duyurusu',
+        content: 'Sistem altyapısını iyileştirmek amacıyla 15 Temmuz 2025 tarihi saat 02:00-06:00 arasında planlı bakım yapılacaktır. Bu süreçte kart yükleme işlemleri etkilenebilir.',
+        image: null,
+        videoUrl: null,
+        likedByUser: false,
+        viewedByUser: true,
+        priority: NewsPriority.KRITIK,
+        type: NewsType.DUYURU,
+        createdAt: DateTime.now().subtract(const Duration(hours: 12)),
+        summary: 'Planlı sistem bakımı',
+      ),
+      
+      // Video ve resim içeren karma haber
+      UserNewsDTO(
+        id: 5,
+        title: 'Etkinlik Tanıtımı - Video İçerik',
+        content: 'Şehrimizde düzenlenecek olan büyük etkinliğin tanıtım videosunu izleyerek detaylı bilgi alabilirsiniz. Etkinlik programı, katılım koşulları ve ödüller hakkında her şey videoda!',
+        image: 'https://picsum.photos/400/200?random=2',
+        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+        thumbnailUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerBlazes.jpg',
+        likedByUser: true,
+        viewedByUser: false,
+        priority: NewsPriority.NORMAL,
+        type: NewsType.ETKINLIK,
+        createdAt: DateTime.now().subtract(const Duration(days: 2)),
+        summary: 'Etkinlik tanıtım videosu',
+      ),
+    ];
   }
 }
