@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
+import '../services/user_service.dart';
+import '../models/auth_model.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -18,6 +21,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   bool _isNewPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
   bool _isLoading = false;
+  String _errorMessage = '';
+  final _userService = UserService();
 
   @override
   void dispose() {
@@ -31,24 +36,59 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
+        _errorMessage = '';
       });
       
-      // Şifre değiştirme işlemi simülasyonu
-      await Future.delayed(const Duration(seconds: 2));
-      
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Şifreniz başarıyla değiştirildi.'),
-            backgroundColor: AppTheme.successColor,
-          ),
+      try {
+        // API'ye şifre değiştirme isteği gönder
+        final response = await _userService.changePassword(
+          _currentPasswordController.text, 
+          _newPasswordController.text
         );
         
-        Navigator.pop(context);
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+          
+          if (response.success) {
+            // Başarılı durumda bildirim göster ve geri dön
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Şifreniz başarıyla değiştirildi.'),
+                backgroundColor: AppTheme.successColor,
+              ),
+            );
+            
+            Navigator.pop(context);
+          } else {
+            // Hata mesajını göster
+            setState(() {
+              _errorMessage = response.message ?? 'Şifre değiştirme işlemi başarısız oldu.';
+            });
+            
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(_errorMessage),
+                backgroundColor: AppTheme.errorColor,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _errorMessage = 'Şifre değiştirme sırasında bir hata oluştu: $e';
+          });
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(_errorMessage),
+              backgroundColor: AppTheme.errorColor,
+            ),
+          );
+        }
       }
     }
   }
@@ -85,6 +125,29 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 _buildInfoCard(),
                 const SizedBox(height: 32),
                 _buildPasswordFields(),
+                if (_errorMessage.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.errorColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppTheme.errorColor.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.error_outline, color: AppTheme.errorColor),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _errorMessage,
+                            style: TextStyle(color: AppTheme.errorColor),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 32),
                 _buildChangePasswordButton(),
               ],
@@ -128,11 +191,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '• En az 8 karakter uzunluğunda\n'
-                  '• En az bir büyük harf\n'
-                  '• En az bir küçük harf\n'
-                  '• En az bir rakam\n'
-                  '• En az bir özel karakter (@, !, #, vb.)',
+                  '• Şifre 6 rakamdan oluşmalıdır\n'
+                  '• Sadece 0-9 arası rakamlar kullanılabilir',
                   style: TextStyle(
                     fontSize: 14,
                     color: AppTheme.textSecondaryColor,
@@ -163,6 +223,12 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             if (value == null || value.isEmpty) {
               return 'Lütfen mevcut şifrenizi girin';
             }
+            if (value.length != 6) {
+              return 'Şifre tam olarak 6 rakam olmalıdır';
+            }
+            if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
+              return 'Şifre sadece rakamlardan oluşmalıdır';
+            }
             return null;
           },
         ),
@@ -180,20 +246,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             if (value == null || value.isEmpty) {
               return 'Lütfen yeni şifrenizi girin';
             }
-            if (value.length < 8) {
-              return 'Şifre en az 8 karakter olmalıdır';
+            if (value.length != 6) {
+              return 'Şifre tam olarak 6 rakam olmalıdır';
             }
-            if (!value.contains(RegExp(r'[A-Z]'))) {
-              return 'Şifre en az bir büyük harf içermelidir';
-            }
-            if (!value.contains(RegExp(r'[a-z]'))) {
-              return 'Şifre en az bir küçük harf içermelidir';
-            }
-            if (!value.contains(RegExp(r'[0-9]'))) {
-              return 'Şifre en az bir rakam içermelidir';
-            }
-            if (!value.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))) {
-              return 'Şifre en az bir özel karakter içermelidir';
+            if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
+              return 'Şifre sadece rakamlardan oluşmalıdır';
             }
             return null;
           },
@@ -245,7 +302,14 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           controller: controller,
           obscureText: !isVisible,
           validator: validator,
+          keyboardType: TextInputType.number,
+          maxLength: 6,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(6),
+          ],
           decoration: InputDecoration(
+            counterText: '',
             filled: true,
             fillColor: Colors.white,
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -279,7 +343,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             ),
             suffixIcon: IconButton(
               icon: Icon(
-                isVisible ? Icons.visibility_off : Icons.visibility,
+                isVisible ? Icons.visibility : Icons.visibility_off,
                 color: Colors.grey,
               ),
               onPressed: onToggleVisibility,

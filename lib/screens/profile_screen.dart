@@ -4,6 +4,7 @@ import 'settings_screen.dart';
 import '../services/user_service.dart';
 import '../models/user_model.dart';
 import 'edit_profile_screen.dart';
+import 'change_password_screen.dart';
 import '../services/auth_service.dart';
 import '../services/secure_storage_service.dart';
 import '../routes.dart';
@@ -29,28 +30,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _loadUserProfile() async {
+    debugPrint('Profile Screen: Profil bilgileri yükleniyor...');
     setState(() {
       _isLoading = true;
       _errorMessage = '';
     });
 
     try {
+      // 🎯 ÖNCELİK: Her zaman API'den en güncel veriyi al 
+      // (getUserProfile metodu zaten API ile SecureStorage'ı karşılaştırıp günceller)
+      debugPrint('🎯 Profile Screen: API\'den profil alınıyor...');
       final userProfile = await _userService.getUserProfile();
       
-      // Save user name and surname to secure storage for use in refresh login screen
-      final secureStorage = SecureStorageService();
-      if (userProfile.name != null) {
-        await secureStorage.setUserFirstName(userProfile.name!);
-      }
-      if (userProfile.surname != null) {
-        await secureStorage.setUserLastName(userProfile.surname!);
-      }
-      
+      // UI'ı API verisisiyle güncelle (SecureStorage'dan değil!)
       setState(() {
         _userProfile = userProfile;
         _isLoading = false;
       });
+      
+      debugPrint('✅ Profile Screen: UI API verisiyle güncellendi - Ad: ${userProfile.name}, Soyad: ${userProfile.surname}');
+      
     } catch (e) {
+      debugPrint('❌ Profile Screen: Profil bilgileri yüklenirken hata: $e');
       setState(() {
         _isLoading = false;
         _errorMessage = 'Profil bilgileri yüklenemedi: $e';
@@ -59,15 +60,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _navigateToEditProfile() async {
+    debugPrint('Profile Screen: Edit profile\'a gidiyor - Mevcut profil: ${_userProfile?.name} ${_userProfile?.surname}');
+    
     final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const EditProfileScreen()),
     );
 
-    // Profil düzenleme sayfasından dönüldüğünde profili yenile
+    debugPrint('Profile Screen: Edit profile\'dan döndü - Result: $result');
+
+    // Profil düzenleme sayfasından dönüldüğünde her zaman profili yenile
     if (result == true) {
+      debugPrint('Edit profile\'dan döndü (başarılı), profil yenileniyor...');
+      
+      // Force rebuild to ensure UI updates
+      if (mounted) {
+        setState(() {
+          _isLoading = true; // Loading göster
+        });
+      }
+      
+      // Kısa bir delay ekle ve sonra yenile
+      await Future.delayed(const Duration(milliseconds: 300));
+      
+      _loadUserProfile();
+    } else {
+      debugPrint('Edit profile\'dan döndü, değişiklik yapmadan çıkıldı');
+      
+      // Değişiklik yapılmamış olsa bile UI'ı yenile (emin olmak için)
+      await Future.delayed(const Duration(milliseconds: 100));
       _loadUserProfile();
     }
+  }
+
+  void _navigateToChangePassword() async {
+    debugPrint('Profile Screen: Change password sayfasına gidiyor...');
+    
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const ChangePasswordScreen()),
+    );
+    
+    debugPrint('Profile Screen: Change password sayfasından döndü');
   }
 
   Future<void> _logout() async {
@@ -107,6 +141,68 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _clearAndRefreshProfile() async {
+    debugPrint('🧹 Manuel SecureStorage temizleme ve profil yenileme başlatıldı');
+    
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = '';
+      });
+      
+      final secureStorage = SecureStorageService();
+      
+      // SecureStorage'ı tamamen temizle
+      debugPrint('🧹 SecureStorage temizleniyor...');
+      await secureStorage.setUserFirstName('');
+      await secureStorage.setUserLastName('');
+      await secureStorage.setUserPhone('');
+      
+      // Kısa bir delay
+      await Future.delayed(const Duration(milliseconds: 300));
+      
+      // API'den en güncel veriyi al
+      debugPrint('🔄 API\'den en güncel veriler alınıyor...');
+      final userProfile = await _userService.refreshUserProfile();
+      
+      setState(() {
+        _userProfile = userProfile;
+        _isLoading = false;
+      });
+      
+      // Final kontrol
+      final finalName = await secureStorage.getUserFirstName();
+      final finalSurname = await secureStorage.getUserLastName();
+      debugPrint('🔍 Manuel yenileme sonrası - SecureStorage: $finalName $finalSurname');
+      debugPrint('🔍 Manuel yenileme sonrası - UI State: ${userProfile.name} ${userProfile.surname}');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profil başarıyla yenilendi!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+      
+    } catch (e) {
+      debugPrint('Manuel profil yenileme hatası: $e');
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Profil yenilenemedi: $e';
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Profil yenilenemedi: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -126,6 +222,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: Icon(Icons.refresh, color: AppTheme.primaryColor),
+            onPressed: () async {
+              debugPrint('🔄 Manuel profil yenilemesi başlatıldı');
+              await _clearAndRefreshProfile();
+            },
+            tooltip: 'Profili Yenile',
+          ),
           IconButton(
             icon: Icon(Icons.settings, color: AppTheme.primaryColor),
             onPressed: () {
@@ -438,11 +542,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             value: _userProfile?.email ?? 'Belirtilmemiş',
           ),
           const Divider(),
-          _buildInfoItem(
-            icon: Icons.home,
-            title: 'Adres',
-            value: _userProfile?.address ?? 'Belirtilmemiş',
-          ),
         ],
       ),
     );
@@ -489,7 +588,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             value: 'Değiştir',
             isButton: true,
             onTap: () {
-              // Şifre değiştirme sayfasına yönlendir
+              _navigateToChangePassword();
             },
           ),
         ],

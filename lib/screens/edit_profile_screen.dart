@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import '../theme/app_theme.dart';
 import '../services/user_service.dart';
 import '../models/user_model.dart';
 import '../services/secure_storage_service.dart';
@@ -18,16 +18,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _nameController = TextEditingController();
   final _surnameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _addressController = TextEditingController();
-  final _identityNumberController = TextEditingController();
-  final _birthdayController = TextEditingController();
   
   File? _profileImage;
   final _imagePicker = ImagePicker();
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _isUploading = false;
+  bool _photoUpdateSuccess = false;
   String _errorMessage = '';
+  String _photoErrorMessage = '';
   
   UserProfile? _userProfile;
   final _userService = UserService();
@@ -43,10 +42,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _nameController.dispose();
     _surnameController.dispose();
     _emailController.dispose();
-    _phoneController.dispose();
-    _addressController.dispose();
-    _identityNumberController.dispose();
-    _birthdayController.dispose();
     super.dispose();
   }
 
@@ -77,67 +72,219 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _nameController.text = profile.name ?? '';
     _surnameController.text = profile.surname ?? '';
     _emailController.text = profile.email ?? '';
-    _addressController.text = profile.address ?? '';
-    _identityNumberController.text = profile.identityNumber ?? '';
-    
-    // Tarih formatını düzenle
-    if (profile.birthday != null) {
-      _birthdayController.text = profile.formattedBirthday;
-    }
   }
 
   Future<void> _pickImage() async {
-    final pickedFile = await _imagePicker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 80,
-    );
+    setState(() {
+      _isUploading = true;  // Yükleme başlıyor
+    });
+    
+    try {
+      final pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+      );
 
-    if (pickedFile != null) {
+      if (pickedFile != null) {
+        final imageFile = File(pickedFile.path);
+        
+        // Fotoğrafı hemen yükle
+        final response = await _userService.updateProfilePhoto(imageFile);
+        
+        if (response.success) {
+          // Fotoğraf güncellemesi başarılıysa, en güncel profil bilgilerini sunucudan al
+          try {
+            // Get the most up-to-date profile data from the server using the refresh method
+            final latestProfile = await _userService.refreshUserProfile();
+            
+            // Update local state with the latest profile data
+            setState(() {
+              _userProfile = latestProfile;
+              _profileImage = imageFile;
+              _photoUpdateSuccess = true;
+              _photoErrorMessage = '';
+            });
+            
+            debugPrint('Edit Profile: Fotoğraf güncellendi, local state güncellendi - Ad: ${latestProfile.name}, Soyad: ${latestProfile.surname}');
+            debugPrint('Profil fotoğrafı güncellendi, en güncel profil bilgileri alındı ve SecureStorage\'a kaydedildi');
+          } catch (e) {
+            debugPrint('Profil fotoğrafı güncellendi fakat en güncel profil bilgileri alınamadı: $e');
+            // Still update the image locally even if we can't refresh the full profile
+            setState(() {
+              _profileImage = imageFile;
+              _photoUpdateSuccess = true;
+              _photoErrorMessage = '';
+            });
+          }
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Profil fotoğrafı başarıyla güncellendi'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } else {
+          setState(() {
+            _photoErrorMessage = 'Fotoğraf yüklenemedi: ${response.message}';
+          });
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Fotoğraf yüklenirken hata oluştu: ${response.message}'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
       setState(() {
-        _profileImage = File(pickedFile.path);
+        _photoErrorMessage = 'Fotoğraf seçilirken hata oluştu: $e';
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Fotoğraf işlenirken hata oluştu: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _isUploading = false;  // Yükleme tamamlandı
       });
     }
   }
 
   Future<void> _saveProfile() async {
     if (_formKey.currentState!.validate()) {
+      // Değişiklik kontrol et
+      final currentName = _userProfile?.name ?? '';
+      final currentSurname = _userProfile?.surname ?? '';
+      final currentEmail = _userProfile?.email ?? '';
+      
+      final newName = _nameController.text.trim();
+      final newSurname = _surnameController.text.trim();
+      final newEmail = _emailController.text.trim();
+      
+      // Hiçbir değişiklik yapılmamışsa uyar
+      if (currentName == newName && 
+          currentSurname == newSurname && 
+          currentEmail == newEmail) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profil bilgilerinizde herhangi bir değişiklik yapmadınız.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return; // İşlemi sonlandır
+      }
+      
       setState(() {
         _isSaving = true;
         _errorMessage = '';
       });
       
       try {
-        // Güncellenmiş profil verilerini oluştur
-        final updatedProfile = UserProfile(
-          name: _nameController.text,
-          surname: _surnameController.text,
-          email: _emailController.text,
-          address: _addressController.text,
-          identityNumber: _identityNumberController.text,
-          birthday: _birthdayController.text,
-          // Diğer alanları mevcut profil üzerinden al
-          active: _userProfile?.active,
-          phoneVerified: _userProfile?.phoneVerified,
-          profileUrl: _userProfile?.profileUrl,
-          createdAt: _userProfile?.createdAt,
-          updatedAt: _userProfile?.updatedAt,
+        // Güncellenmiş profil verilerini oluştur (sadece name, surname ve email)
+        final updatedProfile = UpdateUserRequest(
+          name: newName,
+          surname: newSurname,
+          email: newEmail.isNotEmpty ? newEmail : null,
         );
         
-        // Profil güncelleme işlemini yap
-        final response = await _userService.updateUserProfile(UpdateUserRequest(
-          firstName: updatedProfile.name,
-          lastName: updatedProfile.surname,
-          email: updatedProfile.email,
-        ), _profileImage);
+        // Debug: Hangi alanların değiştiğini logla
+        final changes = <String>[];
+        if (currentName != newName) changes.add('Ad: "$currentName" → "$newName"');
+        if (currentSurname != newSurname) changes.add('Soyad: "$currentSurname" → "$newSurname"');
+        if (currentEmail != newEmail) changes.add('Email: "$currentEmail" → "$newEmail"');
+        debugPrint('Profil değişiklikleri: ${changes.join(', ')}');
+        
+        // Profil güncelleme işlemini yap - v1/api/user/profile endpoint'ine gönder
+        final response = await _userService.updateUserProfile(updatedProfile);
         
         if (mounted) {
           final success = response.success;
+          final message = response.message ?? '';
+          
+          // Backend'den "değişiklik yapılmadı" mesajı geldiyse özel handle et
+          if (!success && message.contains('değişiklik yapılmadı')) {
+            debugPrint('Backend: Herhangi bir değişiklik yapılmadı');
+            
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Profil bilgilerinizde herhangi bir değişiklik yapılmadı.'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+            
+            setState(() {
+              _isSaving = false;
+            });
+            return; // İşlemi sonlandır
+          }
+          
           if (success) {
-            // Update was successful, save user name and surname to secure storage
-            final secureStorage = SecureStorageService();
-            await secureStorage.setUserFirstName(_nameController.text);
-            await secureStorage.setUserLastName(_surnameController.text);
-            debugPrint('Kullanıcı adı ve soyadı güncellendi ve SecureStorage\'a kaydedildi');
+            debugPrint('Profil güncelleme API başarılı');
+            
+            // Önce local state'i hemen güncelle (optimistic update)
+            setState(() {
+              if (_userProfile != null) {
+                _userProfile = UserProfile(
+                  name: newName,
+                  surname: newSurname,
+                  email: newEmail.isNotEmpty ? newEmail : _userProfile!.email,
+                  profileUrl: _userProfile!.profileUrl,
+                  active: _userProfile!.active,
+                  phoneVerified: _userProfile!.phoneVerified,
+                  birthday: _userProfile!.birthday,
+                  identityNumber: _userProfile!.identityNumber,
+                  userNumber: _userProfile!.userNumber,
+                  emailVerified: _userProfile!.emailVerified,
+                  walletActivated: _userProfile!.walletActivated,
+                  roles: _userProfile!.roles,
+                );
+                _fillFormWithUserData(_userProfile!);
+              }
+              _isSaving = false; // Kaydetme işlemi tamamlandı
+            });
+            
+            debugPrint('Edit Profile: Local state güncellendi - Ad: $newName, Soyad: $newSurname');
+            
+            // Backend'e zaman tanı ve sonra API'den güncel veriyi al
+            await Future.delayed(const Duration(milliseconds: 1000));
+            
+            try {
+              // 🔄 Önce SecureStorage'ı temizle
+              final secureStorage = SecureStorageService();
+              debugPrint('🧹 Edit Profile: SecureStorage temizleniyor...');
+              await secureStorage.setUserFirstName('');
+              await secureStorage.setUserLastName('');
+              
+              final latestProfile = await _userService.refreshUserProfile();
+              debugPrint('API\'den en güncel profil alındı - Ad: ${latestProfile.name}, Soyad: ${latestProfile.surname}');
+              
+              // En güncel veriyle state'i tekrar güncelle
+              setState(() {
+                _userProfile = latestProfile;
+                _fillFormWithUserData(latestProfile);
+              });
+              
+              // 🔍 Final kontrol - SecureStorage'daki verileri de kontrol et
+              final finalStoredName = await secureStorage.getUserFirstName();
+              final finalStoredSurname = await secureStorage.getUserLastName();
+              debugPrint('🔍 Edit Profile Final - SecureStorage: $finalStoredName $finalStoredSurname');
+              debugPrint('🔍 Edit Profile Final - UI State: ${latestProfile.name} ${latestProfile.surname}');
+              
+              debugPrint('Final UI state güncellendi - Ad: ${latestProfile.name}, Soyad: ${latestProfile.surname}');
+            } catch (e) {
+              debugPrint('En güncel profil alma hatası: $e');
+              // Hata olsa bile optimistic update geçerli kalacak
+            }
             
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -145,6 +292,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 backgroundColor: AppTheme.successColor,
               ),
             );
+            
+            debugPrint('Edit Profile: Navigator.pop çağrılıyor - Final state: ${_userProfile?.name} ${_userProfile?.surname}');
             Navigator.pop(context, true); // Pass true to indicate update was successful
           } else {
             setState(() {
@@ -271,8 +420,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             const SizedBox(height: 32),
             _buildPersonalInfoSection(),
             const SizedBox(height: 32),
-            _buildContactInfoSection(),
-            const SizedBox(height: 32),
             if (_errorMessage.isNotEmpty) _buildErrorMessage(),
             const SizedBox(height: 16),
             _buildSaveButton(),
@@ -319,7 +466,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: AppTheme.primaryColor.withOpacity(0.5),
+                    color: _photoUpdateSuccess 
+                        ? Colors.green.withOpacity(0.5) 
+                        : AppTheme.primaryColor.withOpacity(0.5),
                     width: 2,
                   ),
                   boxShadow: [
@@ -330,56 +479,92 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                   ],
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(60),
-                  child: _profileImage != null
-                      ? Image.file(
-                          _profileImage!,
-                          fit: BoxFit.cover,
-                        )
-                      : _userProfile?.profileUrl != null
-                          ? Image.network(
-                              _userProfile!.profileUrl!,
+                child: _isUploading 
+                  ? Center(
+                      child: CircularProgressIndicator(
+                        color: AppTheme.primaryColor,
+                      ),
+                    )
+                  : ClipRRect(
+                      borderRadius: BorderRadius.circular(60),
+                      child: _profileImage != null
+                          ? Image.file(
+                              _profileImage!,
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Icon(
+                            )
+                          : _userProfile?.profileUrl != null
+                              ? Image.network(
+                                  _userProfile!.profileUrl!,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Icon(
+                                      Icons.person,
+                                      size: 60,
+                                      color: AppTheme.primaryColor,
+                                    );
+                                  },
+                                )
+                              : Icon(
                                   Icons.person,
                                   size: 60,
                                   color: AppTheme.primaryColor,
-                                );
-                              },
-                            )
-                          : Icon(
-                              Icons.person,
-                              size: 60,
-                              color: AppTheme.primaryColor,
-                            ),
-                ),
+                                ),
+                    ),
               ),
               Positioned(
                 bottom: 0,
                 right: 0,
                 child: GestureDetector(
-                  onTap: _pickImage,
+                  onTap: _isUploading ? null : _pickImage,
                   child: Container(
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryColor,
+                      color: _isUploading ? Colors.grey : AppTheme.primaryColor,
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: Colors.white,
                         width: 2,
                       ),
                     ),
-                    child: const Icon(
-                      Icons.camera_alt,
-                      color: Colors.white,
-                      size: 20,
-                    ),
+                    child: _isUploading
+                        ? const SizedBox(
+                            width: 15,
+                            height: 15,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.camera_alt,
+                            color: Colors.white,
+                            size: 20,
+                          ),
                   ),
                 ),
               ),
+              if (_photoUpdateSuccess)
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white,
+                        width: 1,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.check,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 16),
@@ -391,6 +576,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               color: AppTheme.primaryColor,
             ),
           ),
+          if (_photoErrorMessage.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Text(
+                _photoErrorMessage,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.errorColor,
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -408,10 +605,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             color: AppTheme.textPrimaryColor,
           ),
         ),
+        const SizedBox(height: 8),
+        Text(
+          '* ile işaretlenen alanlar zorunludur',
+          style: TextStyle(
+            fontSize: 12,
+            fontStyle: FontStyle.italic,
+            color: AppTheme.textSecondaryColor,
+          ),
+        ),
         const SizedBox(height: 16),
         _buildTextField(
           controller: _nameController,
-          label: 'Ad',
+          label: 'Ad *',
           icon: Icons.person_outline,
           validator: (value) {
             if (value == null || value.isEmpty) {
@@ -423,7 +629,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         const SizedBox(height: 16),
         _buildTextField(
           controller: _surnameController,
-          label: 'Soyad',
+          label: 'Soyad *',
           icon: Icons.person,
           validator: (value) {
             if (value == null || value.isEmpty) {
@@ -434,25 +640,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ),
         const SizedBox(height: 16),
         _buildTextField(
-          controller: _identityNumberController,
-          label: 'T.C. Kimlik No',
-          icon: Icons.badge,
-          keyboardType: TextInputType.number,
+          controller: _emailController,
+          label: 'E-posta (İsteğe bağlı)',
+          icon: Icons.email,
+          keyboardType: TextInputType.emailAddress,
           validator: (value) {
-            if (value != null && value.isNotEmpty && value.length != 11) {
-              return 'T.C. Kimlik No 11 haneli olmalıdır';
+            if (value != null && value.isNotEmpty && !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+              return 'Lütfen geçerli bir e-posta adresi girin';
             }
             return null;
-          },
-        ),
-        const SizedBox(height: 16),
-        _buildTextField(
-          controller: _birthdayController,
-          label: 'Doğum Tarihi',
-          icon: Icons.calendar_today,
-          keyboardType: TextInputType.datetime,
-          validator: (value) {
-            return null; // Doğum tarihi zorunlu değil
           },
         ),
       ],
@@ -460,61 +656,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Widget _buildContactInfoSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'İletişim Bilgileri',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.textPrimaryColor,
-          ),
-        ),
-        const SizedBox(height: 16),
-        _buildTextField(
-          controller: _emailController,
-          label: 'E-posta',
-          icon: Icons.email,
-          keyboardType: TextInputType.emailAddress,
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Lütfen e-posta adresinizi girin';
-            }
-            if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-              return 'Lütfen geçerli bir e-posta adresi girin';
-            }
-            return null;
-          },
-        ),
-        const SizedBox(height: 16),
-        _buildTextField(
-          controller: _phoneController,
-          label: 'Telefon',
-          icon: Icons.phone,
-          keyboardType: TextInputType.phone,
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Lütfen telefon numaranızı girin';
-            }
-            return null;
-          },
-        ),
-        const SizedBox(height: 16),
-        _buildTextField(
-          controller: _addressController,
-          label: 'Adres',
-          icon: Icons.location_on,
-          maxLines: 3,
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Lütfen adresinizi girin';
-            }
-            return null;
-          },
-        ),
-      ],
-    );
+    // We no longer need this section, as email is now in the personal info section
+    return const SizedBox.shrink();
   }
 
   Widget _buildProfileDetails() {
@@ -536,8 +679,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         const SizedBox(height: 16),
         _buildInfoRow('Hesap Durumu', _userProfile!.active == true ? 'Aktif' : 'Pasif'),
         _buildInfoRow('Telefon Doğrulaması', _userProfile!.phoneVerified == true ? 'Doğrulanmış' : 'Doğrulanmamış'),
-        _buildInfoRow('Kayıt Tarihi', _userProfile!.formattedCreatedAt),
-        _buildInfoRow('Son Güncelleme', _userProfile!.formattedUpdatedAt),
+        if (_userProfile!.emailVerified != null)
+          _buildInfoRow('E-posta Doğrulaması', _userProfile!.emailVerified == true ? 'Doğrulanmış' : 'Doğrulanmamış'),
+        if (_userProfile!.walletActivated != null)
+          _buildInfoRow('Cüzdan Durumu', _userProfile!.walletActivated == true ? 'Aktif' : 'Pasif'),
       ],
     );
   }
@@ -578,6 +723,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     required IconData icon,
     TextInputType keyboardType = TextInputType.text,
     int maxLines = 1,
+    bool readOnly = false,
     required String? Function(String?) validator,
   }) {
     return Column(
@@ -596,10 +742,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           controller: controller,
           keyboardType: keyboardType,
           maxLines: maxLines,
+          readOnly: readOnly,
           validator: validator,
           decoration: InputDecoration(
             filled: true,
-            fillColor: Colors.white,
+            fillColor: readOnly ? Colors.grey.shade100 : Colors.white,
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -611,7 +758,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(
-                color: Colors.grey.shade300,
+                color: readOnly ? Colors.grey.shade400 : Colors.grey.shade300,
                 width: 1,
               ),
             ),

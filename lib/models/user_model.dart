@@ -7,9 +7,10 @@ class UserProfile {
   final String? birthday;
   final String? identityNumber;
   final String? email;
-  final String? address;
-  final String? createdAt;
-  final String? updatedAt;
+  final String? userNumber;
+  final bool? emailVerified;
+  final bool? walletActivated;
+  final List<String>? roles;
 
   UserProfile({
     this.name,
@@ -20,9 +21,10 @@ class UserProfile {
     this.birthday,
     this.identityNumber,
     this.email,
-    this.address,
-    this.createdAt,
-    this.updatedAt,
+    this.userNumber,
+    this.emailVerified,
+    this.walletActivated,
+    this.roles,
   });
 
   // API yanıtından model oluştur
@@ -30,15 +32,16 @@ class UserProfile {
     return UserProfile(
       name: json['name'],
       surname: json['surname'],
-      profileUrl: json['profileUrl'],
+      profileUrl: json['profilePicture'],
       active: json['active'],
       phoneVerified: json['phoneVerified'],
-      birthday: json['birthday'],
-      identityNumber: json['identityNumber'],
+      birthday: json['birthDate'],
+      identityNumber: json['nationalId'],
       email: json['email'],
-      address: json['address'],
-      createdAt: json['createdAt'],
-      updatedAt: json['updatedAt'],
+      userNumber: json['userNumber'],
+      emailVerified: json['emailVerified'],
+      walletActivated: json['walletActivated'],
+      roles: json['roles'] != null ? List<String>.from(json['roles']) : null,
     );
   }
 
@@ -47,37 +50,27 @@ class UserProfile {
     return {
       'name': name,
       'surname': surname,
-      'profileUrl': profileUrl,
       'email': email,
-      'address': address,
-      'birthday': birthday,
-      'identityNumber': identityNumber,
     };
   }
 
   // Tam ad döndürme yardımcı metodu
   String get fullName => '$name $surname'.trim();
 
-  // Oluşturma tarihini formatla
-  String get formattedCreatedAt {
-    if (createdAt == null) return '';
-    final date = DateTime.parse(createdAt!);
-    return '${date.day}.${date.month}.${date.year}';
-  }
-
-  // Güncelleme tarihini formatla
-  String get formattedUpdatedAt {
-    if (updatedAt == null) return '';
-    final date = DateTime.parse(updatedAt!);
-    return '${date.day}.${date.month}.${date.year}';
-  }
-
   // Doğum tarihini formatla
   String get formattedBirthday {
     if (birthday == null) return '';
-    final date = DateTime.parse(birthday!);
-    return '${date.day}.${date.month}.${date.year}';
+    try {
+      final date = DateTime.parse(birthday!);
+      return '${date.day}.${date.month}.${date.year}';
+    } catch (e) {
+      return '';
+    }
   }
+  
+  // For backward compatibility with existing screens
+  String get formattedCreatedAt => 'Bilgi Yok';
+  String get formattedUpdatedAt => 'Bilgi Yok';
 
   // Boş profil oluştur
   factory UserProfile.empty() {
@@ -85,9 +78,10 @@ class UserProfile {
       name: '',
       surname: '',
       email: '',
-      address: '',
       active: true,
       phoneVerified: false,
+      emailVerified: false,
+      walletActivated: false,
     );
   }
-} 
+}

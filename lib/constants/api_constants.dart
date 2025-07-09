@@ -26,11 +26,12 @@ class ApiConstants {
   static String get passwordResendCodeEndpoint => '/user/password/resend-code';
   
   // User endpoints
-  static String get userProfileEndpoint => '/user/profile';
+  static String get userProfileEndpoint => '/user/profile';  // GET/PUT: Kullanıcı profilini al veya güncelle
   static String get updateUserEndpoint => '/user/update';
-  static String get updateProfileEndpoint => '/user/update-profile';
+  static String get updateProfileEndpoint => '/user/profile';  // PUT: Profil bilgilerini güncelle
+  static String get updateProfilePhotoEndpoint => '/user/profile/photo';  // PUT: Profil fotoğrafını güncelle
   static String get verifyPhoneEndpoint => '/user/verify-phone';
-  static String get changePasswordEndpoint => '/user/change-password';
+  static String get changePasswordEndpoint => '/user/password/change';
   
   // News endpoints
   static String get newsBaseEndpoint => '/news';
