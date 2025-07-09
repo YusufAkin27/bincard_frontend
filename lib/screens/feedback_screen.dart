@@ -40,8 +40,9 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         backgroundColor: AppTheme.primaryColor,
-        title: const Text('Uygulama Geri Bildirimi'),
+        title: const Text('Uygulama Geri Bildirimi', style: TextStyle(color: Colors.white)),
         elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Form(
         key: _formKey,

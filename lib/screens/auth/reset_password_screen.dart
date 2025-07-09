@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // Import SharedPreferences
 import '../../theme/app_theme.dart';
 import '../../services/auth_service.dart';
@@ -163,7 +164,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               const SizedBox(height: 30),
               Center(
                 child: Image.asset(
-                  'assets/images/logo2.png',
+                  'assets/images/logo.png',
                   width: 140,
                   height: 140,
                 ),
@@ -206,9 +207,14 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     return TextFormField(
       controller: _passwordController,
       obscureText: _obscurePassword,
+      keyboardType: TextInputType.number,
+      maxLength: 6,
+      inputFormatters: [
+        FilteringTextInputFormatter.digitsOnly,
+      ],
       decoration: InputDecoration(
         labelText: 'Yeni Şifre',
-        hintText: 'Yeni şifrenizi girin',
+        hintText: '6 haneli sayı girin',
         prefixIcon: const Icon(Icons.lock_outline),
         suffixIcon: IconButton(
           icon: Icon(
@@ -228,8 +234,11 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         if (value == null || value.isEmpty) {
           return 'Lütfen bir şifre girin';
         }
-        if (value.length < 6) {
-          return 'Şifre en az 6 karakter olmalıdır';
+        if (value.length != 6) {
+          return 'Şifre tam olarak 6 haneli olmalıdır';
+        }
+        if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
+          return 'Şifre sadece sayılardan oluşmalıdır';
         }
         return null;
       },
@@ -240,9 +249,14 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     return TextFormField(
       controller: _confirmPasswordController,
       obscureText: _obscureConfirmPassword,
+      keyboardType: TextInputType.number,
+      maxLength: 6,
+      inputFormatters: [
+        FilteringTextInputFormatter.digitsOnly,
+      ],
       decoration: InputDecoration(
         labelText: 'Şifre Tekrar',
-        hintText: 'Yeni şifrenizi tekrar girin',
+        hintText: '6 haneli şifrenizi tekrar girin',
         prefixIcon: const Icon(Icons.lock_outline),
         suffixIcon: IconButton(
           icon: Icon(

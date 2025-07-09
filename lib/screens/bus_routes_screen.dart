@@ -93,11 +93,12 @@ class _BusRoutesScreenState extends State<BusRoutesScreen> {
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         backgroundColor: AppTheme.primaryColor,
-        title: const Text('Otobüs Seferleri'),
+        title: const Text('Otobüs Seferleri', style: TextStyle(color: Colors.white)),
         elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(
-            icon: const Icon(Icons.map),
+            icon: const Icon(Icons.map, color: Colors.white),
             onPressed: () {
               Navigator.push(
                 context,

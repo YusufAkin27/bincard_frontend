@@ -143,12 +143,13 @@ class _BusTrackingScreenState extends State<BusTrackingScreen> {
         backgroundColor: AppTheme.primaryColor,
         title:
             widget.busNumber != null
-                ? Text('${widget.busNumber} Takip')
-                : const Text('Otobüs Takip'),
+                ? Text('${widget.busNumber} Takip', style: const TextStyle(color: Colors.white))
+                : const Text('Otobüs Takip', style: TextStyle(color: Colors.white)),
         elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(
-            icon: const Icon(Icons.map),
+            icon: const Icon(Icons.map, color: Colors.white),
             onPressed: () {
               Navigator.push(
                 context,
@@ -158,7 +159,10 @@ class _BusTrackingScreenState extends State<BusTrackingScreen> {
               );
             },
           ),
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _refreshData),
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white), 
+            onPressed: _refreshData
+          ),
         ],
       ),
       body: Column(

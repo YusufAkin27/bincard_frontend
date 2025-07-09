@@ -37,6 +37,9 @@ import 'screens/auth/reset_password_screen.dart';
 import 'screens/auth/login_sms_verify_screen.dart';
 import 'screens/auth/refresh_login_screen.dart';
 
+// Widgets
+import 'widgets/safe_screen.dart';
+
 class AppRoutes {
   // Route isimleri
   static const String home = '/';
@@ -72,9 +75,18 @@ class AppRoutes {
   // Tüm route'ları içeren map
   static final routes = <String, WidgetBuilder>{
     home: (context) => const HomeScreen(),
-    login: (context) => const LoginScreen(),
-    register: (context) => const RegisterScreen(),
-    forgotPassword: (context) => const ForgotPasswordScreen(),
+    login: (context) => SafeScreen(
+      child: const LoginScreen(),
+      warningMessage: 'Giriş ekranından çıkmak için Çıkış butonunu kullanın',
+    ),
+    register: (context) => SafeScreen(
+      child: const RegisterScreen(),
+      warningMessage: 'Kayıt işlemini tamamlayın veya Giriş sayfasına dönün',
+    ),
+    forgotPassword: (context) => SafeScreen(
+      child: const ForgotPasswordScreen(),
+      warningMessage: 'Şifre sıfırlama işlemini tamamlayın veya Giriş sayfasına dönün',
+    ),
     profile: (context) => const ProfileScreen(),
     wallet: (context) => const WalletScreen(),
     addBalance: (context) => const AddBalanceScreen(),
@@ -98,30 +110,43 @@ class AppRoutes {
     switch (settings.name) {
       case refreshLogin:
         return MaterialPageRoute(
-          builder: (context) => const RefreshLoginScreen(),
+          builder: (context) => SafeScreen(
+            child: const RefreshLoginScreen(),
+            warningMessage: 'Giriş işlemini tamamlayın',
+          ),
         );
       case verification:
         final args = settings.arguments as Map<String, dynamic>?;
         return MaterialPageRoute(
-          builder: (context) => VerificationScreen(
-            phoneNumber: args?['phoneNumber'] as String? ?? '',
-            isPasswordReset: args?['isPasswordReset'] as bool? ?? false,
+          builder: (context) => SafeScreen(
+            child: VerificationScreen(
+              phoneNumber: args?['phoneNumber'] as String? ?? '',
+              isPasswordReset: args?['isPasswordReset'] as bool? ?? false,
+            ),
+            warningMessage: 'Doğrulama işlemini tamamlayın',
           ),
         );
       case resetPassword:
         final args = settings.arguments as Map<String, dynamic>?;
         return MaterialPageRoute(
-          builder: (context) => ResetPasswordScreen(
-            phoneNumber: args?['phoneNumber'] as String? ?? '',
-            resetToken: args?['resetToken'] as String? ?? '',
+          builder: (context) => SafeScreen(
+            child: ResetPasswordScreen(
+              phoneNumber: args?['phoneNumber'] as String? ?? '',
+              resetToken: args?['resetToken'] as String? ?? '',
+            ),
+            warningMessage: 'Şifre sıfırlama işlemini tamamlayın',
           ),
         );
       case loginSmsVerify:
         final args = settings.arguments as Map<String, dynamic>?;
         return MaterialPageRoute(
-          builder: (context) => LoginSmsVerifyScreen(
-            phoneNumber: args?['phoneNumber'] as String? ?? '',
-            password: args?['password'] as String? ?? '',
+          builder: (context) => SafeScreen(
+            child: LoginSmsVerifyScreen(
+              phoneNumber: args?['phoneNumber'] as String? ?? '',
+              password: args?['password'] as String? ?? '',
+              isPasswordReset: args?['isPasswordReset'] as bool? ?? false,
+            ),
+            warningMessage: 'SMS doğrulama işlemini tamamlayın',
           ),
         );
       case qrCode:

@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import '../../services/secure_storage_service.dart';
 import '../../routes.dart';
+import '../../widgets/safe_screen.dart';
 
 // SharedPreferences anahtarlarını sabit olarak tanımlayalım
 const String kSavedPhoneKey = 'saved_phone';
@@ -192,15 +193,15 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
-  // Refresh token kontrolü
+  // Refresh token kontrolü - Devre dışı bırakıldı (her zaman telefon ve şifre gösterilecek)
   Future<void> _checkRefreshToken() async {
     try {
       final secureStorage = SecureStorageService();
       final refreshToken = await secureStorage.getRefreshToken();
       if (refreshToken != null) {
-        debugPrint('Kayıtlı refresh token bulundu');
+        debugPrint('Kayıtlı refresh token bulundu, ancak hızlı giriş devre dışı');
         setState(() {
-          _hasRefreshToken = true;
+          _hasRefreshToken = false; // Always set to false to show phone input
         });
       }
     } catch (e) {
@@ -227,43 +228,6 @@ class _LoginScreenState extends State<LoginScreen>
         // Şifreyi al
         final password = _passwordController.text.trim();
 
-        // Access token ve refresh token kontrolü
-        final secureStorage = SecureStorageService();
-        final refreshToken = await secureStorage.getRefreshToken();
-        
-        // Eğer refresh token varsa, refreshLogin kullan
-        if (refreshToken != null) {
-          try {
-            debugPrint('Refresh token var, refreshLogin deneniyor...');
-            
-            try {
-              // AuthService üzerinden refresh-login işlemini çağır
-              final tokenResponse = await _authService.refreshLogin(password);
-              
-              debugPrint('RefreshLogin yanıtı alındı: accessToken=${tokenResponse.accessToken.token}');
-              // Başarılı giriş - ana sayfaya yönlendir
-              debugPrint('RefreshLogin başarılı, ana sayfaya yönlendiriliyor...');
-              if (!mounted) return;
-              _navigateToHome();
-              return;
-            } catch (e) {
-              debugPrint('RefreshLogin başarısız: $e');
-              rethrow;
-            }
-          } catch (e) {
-            debugPrint('RefreshLogin başarısız, normal giriş deneniyor: $e');
-            setState(() {
-              _errorMessage = e.toString().replaceFirst('Exception: ', '');
-            });
-            // RefreshLogin başarısız olursa, hata mesajını göster ve işlemi sonlandır
-            setState(() {
-              _isLoading = false;
-            });
-            return;
-          }
-        }
-
-        // Eğer refresh token yoksa, normal giriş yap
         // Telefon numarası formatını düzenle (maskeden sadece rakamları al)
         final phoneNumber = phoneMaskFormatter.getUnmaskedText();
 
@@ -528,58 +492,22 @@ class _LoginScreenState extends State<LoginScreen>
           height: 140,  // Arka plan olmadan biraz daha büyük
         ),
         const SizedBox(height: 24),
-        if (_hasRefreshToken && _userName != null) ...[
-          // Kullanıcı adı ile selamlama mesajı
-          Text(
-            '${_getGreetingMessage()}, $_userName',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-              shadows: [
-                Shadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            textAlign: TextAlign.center,
+        // Her zaman standart karşılama mesajını göster
+        Text(
+          'Şehir Kartıma Hoş Geldiniz',
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            shadows: [
+              Shadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Tekrar hoş geldiniz',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.white.withOpacity(0.9),
-              fontWeight: FontWeight.w500,
-              shadows: [
-                Shadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 2,
-                  offset: const Offset(0, 1),
-                ),
-              ],
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ] else ...[
-          // Standart karşılama mesajı
-          Text(
-            'Şehir Kartıma Hoş Geldiniz',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-              shadows: [
-                Shadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+          textAlign: TextAlign.center,
+        ),
       ],
     );
   }
@@ -611,9 +539,7 @@ class _LoginScreenState extends State<LoginScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            _hasRefreshToken 
-                ? 'Şifrenizi girerek devam edin' 
-                : 'Lütfen bilgilerinizi girin',
+            'Lütfen bilgilerinizi girin',
             style: TextStyle(fontSize: 14, color: AppTheme.textSecondaryColor),
           ),
           const SizedBox(height: 24),
@@ -627,8 +553,8 @@ class _LoginScreenState extends State<LoginScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (!_hasRefreshToken) _buildPhoneInput(),
-        if (!_hasRefreshToken) const SizedBox(height: 16),
+        _buildPhoneInput(),  // Always show phone input
+        const SizedBox(height: 16),
         _buildPasswordInput(),
         const SizedBox(height: 8),
         _buildRememberMeForgotPassword(),
@@ -638,7 +564,7 @@ class _LoginScreenState extends State<LoginScreen>
           const SizedBox(height: 16),
         ],
         _buildLoginButton(),
-        if (_canUseBiometrics && _hasRefreshToken) ...[
+        if (_canUseBiometrics) ...[  // Still show biometric login if available
           const SizedBox(height: 16),
           _buildBiometricLoginButton(),
         ],
@@ -796,13 +722,8 @@ class _LoginScreenState extends State<LoginScreen>
         ),
         TextButton(
           onPressed: () {
-            // Basitleştirilmiş sayfa geçişi
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const ForgotPasswordScreen(),
-              ),
-            );
+            // Use safe navigation for auth flow
+            safeNavigate(context, AppRoutes.forgotPassword);
           },
           style: TextButton.styleFrom(
             foregroundColor: AppTheme.primaryColor,
@@ -899,13 +820,8 @@ class _LoginScreenState extends State<LoginScreen>
         ),
         TextButton(
           onPressed: () {
-            // Basitleştirilmiş sayfa geçişi
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const RegisterScreen(),
-              ),
-            );
+            // Use safe navigation for auth flow
+            safeNavigate(context, AppRoutes.register);
           },
           child: Text(
             'Kayıt Ol',

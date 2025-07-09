@@ -5,6 +5,9 @@ import '../../theme/app_theme.dart';
 import '../../services/auth_service.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'verification_screen.dart';
+import 'login_screen.dart';
+import '../../routes.dart';
+import '../../widgets/safe_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -286,6 +289,30 @@ class _RegisterScreenState extends State<RegisterScreen>
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Icon(Icons.arrow_back, color: AppTheme.primaryColor),
+          ),
+          onPressed: () {
+            safeNavigate(context, AppRoutes.login);
+          },
+        ),
+      ),
       body: Stack(
         children: [
           // Üst kısımdaki dekoratif gradient
@@ -304,32 +331,6 @@ class _RegisterScreenState extends State<RegisterScreen>
                 borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(40),
                   bottomRight: Radius.circular(40),
-                ),
-              ),
-            ),
-          ),
-
-          // Geri butonu
-          Positioned(
-            top: 40,
-            left: 16,
-            child: SafeArea(
-              child: GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Icon(Icons.arrow_back, color: AppTheme.primaryColor),
                 ),
               ),
             ),
@@ -813,7 +814,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         ),
         TextButton(
           onPressed: () {
-            Navigator.pop(context);
+            safeNavigate(context, AppRoutes.login);
           },
           child: Text(
             'Giriş Yap',

@@ -5,6 +5,8 @@ import '../../services/api_service.dart';
 import '../../constants/api_constants.dart';
 import 'package:dio/dio.dart';
 import 'verification_screen.dart';
+import '../../routes.dart';
+import '../../widgets/safe_screen.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -100,15 +102,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
             );
 
             // Şifre sıfırlama doğrulama ekranına yönlendir
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => VerificationScreen(
-                  phoneNumber: phoneNumber,
-                  isPasswordReset: true,
-                ),
-              ),
-            );
+            safeNavigate(context, AppRoutes.verification, arguments: {
+              'phoneNumber': phoneNumber,
+              'isPasswordReset': true,
+            });
           } else {
             setState(() {
               _errorMessage = response.data['message'] ?? 'Doğrulama kodu gönderme başarısız oldu.';
@@ -165,7 +162,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
 
     // Başarılı şifre sıfırlama işlemi sonrası giriş sayfasına dönüş
     Future.delayed(const Duration(seconds: 2), () {
-      Navigator.pop(context);
+      safeNavigate(context, AppRoutes.login);
     });
   }
 
@@ -178,7 +175,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: AppTheme.primaryColor),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => safeNavigate(context, AppRoutes.login),
         ),
         title: Text(
           'Şifremi Unuttum',
@@ -238,7 +235,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
       children: [
         // Doğrudan logo görselini göster, yuvarlak arka plan olmadan
         Image.asset(
-          'assets/images/logo2.png',
+          'assets/images/logo.png',
           width: 140,
           height: 140,
         ),
