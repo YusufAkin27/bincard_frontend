@@ -118,26 +118,52 @@ class _NewsScreenState extends State<NewsScreen>
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         backgroundColor: AppTheme.primaryColor,
-        title: const Text('Haberler ve Duyurular', style: TextStyle(color: Colors.white)),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white), // Geri dönme butonu beyaz
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: Colors.white,
-          indicatorWeight: 3,
-          labelStyle: const TextStyle(
-            fontSize: 14,
+        title: const Text(
+          'Haberler ve Duyurular',
+          style: TextStyle(
+            color: Colors.white,
             fontWeight: FontWeight.bold,
-            color: Colors.white, // Tab yazıları beyaz
+            fontSize: 20,
           ),
-          labelColor: Colors.white, // Seçili tab rengi beyaz
-          unselectedLabelColor: Colors.white70, // Seçili olmayan tab rengi beyaz ama daha soluk
-          tabs: const [
-            Tab(text: 'Tümü'),
-            Tab(text: 'Önemli'),
-            Tab(text: 'Duyurular'),
-            Tab(text: 'Projeler'),
-          ],
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(56.0),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 4.0,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: TabBar(
+              controller: _tabController,
+              indicatorColor: Colors.white,
+              indicatorWeight: 3,
+              indicatorSize: TabBarIndicatorSize.label,
+              labelStyle: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+              unselectedLabelStyle: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.normal,
+              ),
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.white.withOpacity(0.7),
+              tabs: const [
+                Tab(text: 'Tümü'),
+                Tab(text: 'Önemli'),
+                Tab(text: 'Duyurular'),
+                Tab(text: 'Projeler'),
+              ],
+            ),
+          ),
         ),
       ),
       body: TabBarView(
@@ -155,16 +181,25 @@ class _NewsScreenState extends State<NewsScreen>
   Widget _buildNewsList(List<UserNewsDTO> newsList) {
     return RefreshIndicator(
       onRefresh: _refreshNews,
+      color: AppTheme.primaryColor,
+      backgroundColor: Colors.white,
+      displacement: 40.0,
+      strokeWidth: 3.0,
       child: _isLoading
           ? _buildLoadingIndicator()
           : newsList.isEmpty
               ? _buildEmptyList()
               : ListView.builder(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.only(top: 16, bottom: 24, left: 16, right: 16),
                   itemCount: newsList.length,
                   itemBuilder: (context, index) {
                     final news = newsList[index];
-                    return _buildNewsCard(news);
+                    return AnimatedContainer(
+                      duration: Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                      margin: const EdgeInsets.only(bottom: 20),
+                      child: _buildNewsCard(news),
+                    );
                   },
                 ),
     );
@@ -172,8 +207,23 @@ class _NewsScreenState extends State<NewsScreen>
 
   Widget _buildLoadingIndicator() {
     return Center(
-      child: CircularProgressIndicator(
-        color: AppTheme.primaryColor,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            color: AppTheme.primaryColor,
+            strokeWidth: 3,
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Haberler yükleniyor...',
+            style: TextStyle(
+              fontSize: 18,
+              color: AppTheme.textSecondaryColor,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -183,18 +233,50 @@ class _NewsScreenState extends State<NewsScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.article_outlined,
-            size: 80,
-            color: AppTheme.textSecondaryColor.withOpacity(0.5),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppTheme.dividerColor.withOpacity(0.5),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.article_outlined,
+              size: 80,
+              color: AppTheme.primaryColor.withOpacity(0.7),
+            ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           Text(
             'Haber bulunamadı',
             style: TextStyle(
-              fontSize: 18,
-              color: AppTheme.textSecondaryColor,
-              fontWeight: FontWeight.w500,
+              fontSize: 20,
+              color: AppTheme.textPrimaryColor,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Text(
+              'Şu anda görüntülenecek haber bulunmuyor. Lütfen daha sonra tekrar kontrol edin.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                color: AppTheme.textSecondaryColor,
+                height: 1.4,
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: _refreshNews,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Yenile'),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
         ],
@@ -207,141 +289,228 @@ class _NewsScreenState extends State<NewsScreen>
                              news.priority == NewsPriority.COK_YUKSEK ||
                              news.priority == NewsPriority.KRITIK;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: () => _showNewsDetails(news),
-        borderRadius: BorderRadius.circular(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(12),
-              ),
-              child: Container(
-                height: 160,
-                width: double.infinity,
-                color: AppTheme.primaryColor.withOpacity(0.1),
-                child: _buildNewsMedia(news),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.07),
+            blurRadius: 10,
+            spreadRadius: 0,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Card(
+        margin: EdgeInsets.zero,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => _showNewsDetails(news),
+          borderRadius: BorderRadius.circular(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Medya kısmı
+              Stack(
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _getCategoryColor(news.type).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          _getCategoryName(news.type),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: _getCategoryColor(news.type),
-                          ),
-                        ),
-                      ),
-                      const Spacer(),
-                      Icon(
-                        Icons.access_time,
-                        size: 14,
-                        color: AppTheme.textSecondaryColor,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        timeago.format(news.date, locale: 'tr'),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.textSecondaryColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          news.title,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (isImportant)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 8),
-                          child: Icon(
-                            Icons.star,
-                            color: AppTheme.accentColor,
-                            size: 24,
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    news.summary ?? news.content,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.textSecondaryColor,
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(16),
                     ),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
+                    child: Container(
+                      height: 180,
+                      width: double.infinity,
+                      color: AppTheme.primaryColor.withOpacity(0.1),
+                      child: _buildNewsMedia(news),
+                    ),
                   ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      ElevatedButton(
-                        onPressed: () => _showNewsDetails(news),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                  
+                  // Önemli haber ise üst köşeye etiket ekle
+                  if (isImportant)
+                    Positioned(
+                      top: 12,
+                      left: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppTheme.accentColor,
+                          borderRadius: BorderRadius.circular(30),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.15),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
-                        child: const Text('Devamını Oku'),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        icon: Icon(Icons.share, color: AppTheme.primaryColor),
-                        onPressed: () {
-                          // Haberi paylaş
-                          _shareNews(news);
-                        },
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          Icons.bookmark_border,
-                          color: AppTheme.primaryColor,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.star, color: Colors.white, size: 14),
+                            SizedBox(width: 4),
+                            Text(
+                              'Önemli',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
-                        onPressed: () {
-                          // Haberi kaydet - bu özellik gelecekte eklenecek
-                        },
                       ),
-                    ],
-                  ),
+                    ),
                 ],
               ),
-            ),
-          ],
+              
+              // İçerik kısmı
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Kategori ve Tarih
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _getCategoryColor(news.type).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _getCategoryIcon(news.type),
+                                size: 14,
+                                color: _getCategoryColor(news.type),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                _getCategoryName(news.type),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: _getCategoryColor(news.type),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Spacer(),
+                        Icon(
+                          Icons.access_time_rounded,
+                          size: 14,
+                          color: AppTheme.textSecondaryColor.withOpacity(0.7),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          timeago.format(news.date, locale: 'tr'),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.textSecondaryColor.withOpacity(0.7),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 14),
+                    
+                    // Başlık
+                    Text(
+                      news.title,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        height: 1.3,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    
+                    const SizedBox(height: 8),
+                    
+                    // Özet
+                    Text(
+                      news.summary ?? news.content,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.textSecondaryColor,
+                        height: 1.4,
+                      ),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    // Alt butonlar
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            icon: const Icon(Icons.remove_red_eye, size: 18),
+                            label: const Text('Detaylar'),
+                            onPressed: () => _showNewsDetails(news),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.primaryColor,
+                              side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.5)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.share_rounded),
+                          onPressed: () => _shareNews(news),
+                          style: IconButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              side: BorderSide(
+                                color: AppTheme.dividerColor,
+                              ),
+                            ),
+                            padding: const EdgeInsets.all(12),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.favorite_border_rounded),
+                          onPressed: () {
+                            // Beğenme işlemi - gelecekte eklenecek
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Beğenme özelliği yakında eklenecek'),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          },
+                          style: IconButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              side: BorderSide(
+                                color: AppTheme.dividerColor,
+                              ),
+                            ),
+                            padding: const EdgeInsets.all(12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -351,36 +520,64 @@ class _NewsScreenState extends State<NewsScreen>
     // Haber görüntüleme kaydını tut
     NewsService().recordNewsView(news.id);
     
-    // Video içeren bir haber için, eğer thumbnail varsa, video oynatıcıyı açabiliriz
-    if (news.videoUrl != null && news.videoUrl!.isNotEmpty && 
-        news.thumbnailUrl != null && news.thumbnailUrl!.isNotEmpty) {
-      _playVideo(news);
-    } else {
-      // Normal haber detay sayfasına git
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => NewsDetailScreen(news: news)),
-      );
-    }
+    // Direkt olarak haber detay sayfasına git
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => NewsDetailScreen(news: news)),
+    );
   }
   
   void _playVideo(UserNewsDTO news) {
     // Kullanıcıya normal detay sayfası veya video oynatıcı seçeneği sun
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
         return Container(
           decoration: const BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Kapatma çubuğu
+              Container(
+                width: 50,
+                height: 5,
+                margin: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  'Video veya detay görüntüleme',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimaryColor,
+                  ),
+                ),
+              ),
+              const Divider(),
               ListTile(
-                leading: const Icon(Icons.article),
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.article_rounded, 
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
                 title: const Text('Haber Detayını Görüntüle'),
+                subtitle: const Text('Haberin tam metnini ve içeriğini okuyun'),
                 onTap: () {
                   Navigator.pop(context); // Sheet kapat
                   Navigator.push(
@@ -390,8 +587,19 @@ class _NewsScreenState extends State<NewsScreen>
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.play_circle_filled),
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.play_circle_filled_rounded, 
+                    color: Colors.red,
+                  ),
+                ),
                 title: const Text('Videoyu Oynat'),
+                subtitle: const Text('Video içeriğini tam ekran izleyin'),
                 onTap: () {
                   Navigator.pop(context); // Sheet kapat
                   
@@ -401,10 +609,10 @@ class _NewsScreenState extends State<NewsScreen>
                     isScrollControlled: true,
                     backgroundColor: Colors.transparent,
                     builder: (context) => Container(
-                      height: MediaQuery.of(context).size.height * 0.75,
+                      height: MediaQuery.of(context).size.height * 0.85,
                       decoration: const BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                        color: Colors.black,
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                       ),
                       child: Column(
                         children: [
@@ -414,7 +622,7 @@ class _NewsScreenState extends State<NewsScreen>
                             height: 5,
                             margin: const EdgeInsets.symmetric(vertical: 10),
                             decoration: BoxDecoration(
-                              color: Colors.grey[300],
+                              color: Colors.grey[500],
                               borderRadius: BorderRadius.circular(10),
                             ),
                           ),
@@ -426,7 +634,9 @@ class _NewsScreenState extends State<NewsScreen>
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
+                                color: Colors.white,
                               ),
+                              textAlign: TextAlign.center,
                             ),
                           ),
                           // Video player
@@ -439,12 +649,66 @@ class _NewsScreenState extends State<NewsScreen>
                               fitToScreen: true,
                             ),
                           ),
+                          // Video altındaki açıklama
+                          if (news.summary != null && news.summary!.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              width: double.infinity,
+                              color: Colors.black,
+                              child: Text(
+                                news.summary!,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          // Alt butonlar
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.close,
+                                    color: Colors.white,
+                                    size: 28,
+                                  ),
+                                  onPressed: () => Navigator.pop(context),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.share_rounded,
+                                    color: Colors.white,
+                                    size: 24,
+                                  ),
+                                  onPressed: () => _shareNews(news),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.text_snippet_rounded,
+                                    color: Colors.white,
+                                    size: 24,
+                                  ),
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (context) => NewsDetailScreen(news: news)),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
                   );
                 },
               ),
+              const SizedBox(height: 16),
             ],
           ),
         );
@@ -503,51 +767,84 @@ class _NewsScreenState extends State<NewsScreen>
       if (news.thumbnailUrl != null && news.thumbnailUrl!.isNotEmpty) {
         debugPrint('🖼️ Video thumbnail gösteriliyor: ${news.thumbnailUrl}');
         return Stack(
+          fit: StackFit.expand,
           children: [
             // Thumbnail göster
             Image.network(
               news.thumbnailUrl!,
               fit: BoxFit.cover,
               width: double.infinity,
-              height: 200,
+              height: double.infinity,
               errorBuilder: (context, error, stackTrace) {
                 debugPrint('❌ Thumbnail yükleme hatası: $error');
                 return Container(
-                  height: 200,
-                  color: Colors.grey[300],
+                  color: Colors.grey[200],
                   child: const Center(
                     child: Icon(Icons.movie, size: 60, color: Colors.grey),
                   ),
                 );
               },
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Container(
+                  color: Colors.grey[100],
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      value: loadingProgress.expectedTotalBytes != null
+                          ? loadingProgress.cumulativeBytesLoaded /
+                              loadingProgress.expectedTotalBytes!
+                          : null,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                );
+              },
+            ),
+            // Gradient overlay
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withOpacity(0.3),
+                  ],
+                ),
+              ),
             ),
             // Video play butonu overlay
-            Positioned.fill(
-              child: Center(
-                child: Icon(
-                  Icons.play_circle_fill,
-                  color: Colors.white.withOpacity(0.8),
-                  size: 60,
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.9),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.play_arrow_rounded,
+                  color: Colors.white,
+                  size: 36,
                 ),
               ),
             ),
             // Video etiketi
             Positioned(
-              top: 8,
-              right: 8,
+              top: 12,
+              right: 12,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.7),
-                  borderRadius: BorderRadius.circular(4),
+                  color: Colors.black.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(30),
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      Icons.play_circle_filled,
+                      Icons.play_circle_filled_rounded,
                       color: Colors.white,
-                      size: 16,
+                      size: 14,
                     ),
                     SizedBox(width: 4),
                     Text(
@@ -580,21 +877,21 @@ class _NewsScreenState extends State<NewsScreen>
             ),
             // Video işaret overlay'ı
             Positioned(
-              top: 8,
-              right: 8,
+              top: 12,
+              right: 12,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.7),
-                  borderRadius: BorderRadius.circular(4),
+                  color: Colors.black.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(30),
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      Icons.play_circle_filled,
+                      Icons.play_circle_filled_rounded,
                       color: Colors.white,
-                      size: 16,
+                      size: 14,
                     ),
                     SizedBox(width: 4),
                     Text(
@@ -620,6 +917,8 @@ class _NewsScreenState extends State<NewsScreen>
       return Image.network(
         news.image!,
         fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
         errorBuilder: (context, error, stackTrace) {
           debugPrint('❌ Resim yükleme hatası: $error');
           return Center(
@@ -630,16 +929,48 @@ class _NewsScreenState extends State<NewsScreen>
             ),
           );
         },
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            color: Colors.grey[100],
+            child: Center(
+              child: CircularProgressIndicator(
+                value: loadingProgress.expectedTotalBytes != null
+                    ? loadingProgress.cumulativeBytesLoaded /
+                        loadingProgress.expectedTotalBytes!
+                    : null,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+          );
+        },
       );
     }
     
     // Ne video ne de resim varsa ikon göster
     debugPrint('🎯 Ne video ne resim var, ikon gösteriliyor');
-    return Center(
-      child: Icon(
-        _getCategoryIcon(news.type),
-        size: 60,
-        color: AppTheme.primaryColor.withOpacity(0.5),
+    return Container(
+      color: AppTheme.backgroundColor,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              _getCategoryIcon(news.type),
+              size: 64,
+              color: AppTheme.primaryColor.withOpacity(0.3),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _getCategoryName(news.type),
+              style: TextStyle(
+                fontSize: 14,
+                color: AppTheme.textSecondaryColor.withOpacity(0.7),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
