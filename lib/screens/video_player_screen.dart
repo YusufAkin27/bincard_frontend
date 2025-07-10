@@ -81,14 +81,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           ),
         ],
       ),
-      child: VideoPlayerWidget(
-        videoUrl: _sampleVideos[_selectedVideoIndex]['url'],
-        autoPlay: false,
-        looping: false,
-        showControls: true,
-        fitToScreen: true,
-        maxHeight: MediaQuery.of(context).size.height * 0.6, // Ekranın max %60'ı
-        minHeight: 200, // Minimum 200px
+      child: AspectRatio(
+        aspectRatio: 16/9,
+        child: VideoPlayerWidget(
+          videoUrl: _sampleVideos[_selectedVideoIndex]['url'],
+          autoPlay: false,
+          looping: false,
+          showControls: true,
+          fitToScreen: true,
+          maxHeight: MediaQuery.of(context).size.height * 0.6, // Ekranın max %60'ı
+          minHeight: 200, // Minimum 200px
+        ),
       ),
     );
   }

@@ -151,31 +151,13 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     double calculatedHeight = screenWidth / aspectRatio;
     
     // Widget parametrelerinden limitler al, yoksa ekran boyutuna göre dinamik limitler
-    final maxHeight = widget.maxHeight ?? (screenHeight * 0.4); // Ekranın %40'ı
-    final minHeight = widget.minHeight ?? (screenHeight * 0.15); // Ekranın %15'i
+    final defaultHeight = widget.minHeight ?? (screenHeight * 0.25); // Ekranın %25'i
+    final maxHeight = widget.maxHeight ?? (screenHeight * 0.4);
     
-    // Video çözünürlüğüne göre optimal boyut ayarı
-    final videoSize = _controller.value.size;
-    if (videoSize.width > 0 && videoSize.height > 0) {
-      // Yüksek çözünürlüklü videolar için daha büyük alan
-      if (videoSize.width >= 1920 || videoSize.height >= 1080) {
-        calculatedHeight = calculatedHeight.clamp(minHeight * 1.2, maxHeight);
-      } 
-      // Orta çözünürlüklü videolar
-      else if (videoSize.width >= 1280 || videoSize.height >= 720) {
-        calculatedHeight = calculatedHeight.clamp(minHeight, maxHeight * 0.8);
-      }
-      // Düşük çözünürlüklü videolar
-      else {
-        calculatedHeight = calculatedHeight.clamp(minHeight * 0.8, maxHeight * 0.6);
-      }
-    } else {
-      // Video boyutu alınamazsa genel sınırları uygula
-      calculatedHeight = calculatedHeight.clamp(minHeight, maxHeight);
-    }
+    // Min/max değerleri arasında sınırla
+    calculatedHeight = calculatedHeight.clamp(defaultHeight, maxHeight);
     
     debugPrint('🎥 Hesaplanan video yüksekliği: $calculatedHeight');
-    debugPrint('🎥 Min: $minHeight, Max: $maxHeight');
     
     return calculatedHeight;
   }
@@ -217,7 +199,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     String twoDigits(int n) => n.toString().padLeft(2, '0');
     String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
     String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
-    return "${twoDigits(duration.inHours)}:$twoDigitMinutes:$twoDigitSeconds";
+    return "$twoDigitMinutes:$twoDigitSeconds";
   }
 
   // Thumbnail'dan video player'a geçiş
@@ -339,129 +321,136 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   }
 
   Widget _buildVideoPlayer() {
-    // Video çözünürlüğüne göre dinamik aspect ratio hesapla
     final aspectRatio = _getOptimalAspectRatio();
-    final height = _getOptimalHeight();
     
+    // We no longer use a fixed height Container to wrap the video player
+    // This allows the player to properly respect the AspectRatio constraints from its parent
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
-      child: Container(
-        width: double.infinity,
-        height: height,
-        child: AspectRatio(
-          aspectRatio: aspectRatio,
-          child: Stack(
-            children: [
-              // Video player
-              VideoPlayer(_controller),
-              
-              // Kontroller overlay
-              if (widget.showControls)
-                Positioned.fill(
-                  child: GestureDetector(
-                    onTap: _toggleControls,
-                    child: AnimatedOpacity(
-                      opacity: _showControls ? 1.0 : 0.0,
-                      duration: const Duration(milliseconds: 300),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.black.withOpacity(0.3),
-                              Colors.transparent,
-                              Colors.black.withOpacity(0.3),
-                            ],
-                          ),
-                        ),
-                        child: _buildVideoControls(),
-                      ),
+      child: Stack(
+        children: [
+          // Video player
+          AspectRatio(
+            aspectRatio: aspectRatio,
+            child: VideoPlayer(_controller),
+          ),
+          
+          // Kontroller overlay
+          if (widget.showControls)
+            GestureDetector(
+              onTap: _toggleControls,
+              child: AnimatedOpacity(
+                opacity: _showControls ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 300),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withOpacity(0.3),
+                        Colors.transparent,
+                        Colors.black.withOpacity(0.3),
+                      ],
                     ),
                   ),
+                  child: _buildVideoControls(),
                 ),
-            ],
-          ),
-        ),
+              ),
+            ),
+        ],
       ),
     );
   }
 
   Widget _buildVideoControls() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        // Üst kontroller (başlık alanı - isteğe bağlı)
-        Container(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Boş alan (gelecekte başlık eklenebilir)
-              const SizedBox(),
-              // Tam ekran butonu (gelecekte eklenebilir)
-              IconButton(
-                icon: const Icon(Icons.fullscreen, color: Colors.white),
-                onPressed: () {
-                  // Tam ekran fonksiyonu eklenebilir
-                },
-              ),
-            ],
-          ),
-        ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Use constraints to build responsive controls
+        final bool isSmallScreen = constraints.maxHeight < 200;
         
-        // Orta kontroller (play/pause)
-        Center(
-          child: IconButton(
-            iconSize: 64,
-            icon: Icon(
-              _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
-              color: Colors.white,
-            ),
-            onPressed: _togglePlayPause,
-          ),
-        ),
-        
-        // Alt kontroller (progress bar ve zaman)
-        Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              // Progress bar
-              VideoProgressIndicator(
-                _controller,
-                allowScrubbing: true,
-                colors: VideoProgressColors(
-                  playedColor: AppTheme.primaryColor,
-                  bufferedColor: Colors.white.withOpacity(0.3),
-                  backgroundColor: Colors.white.withOpacity(0.1),
-                ),
-              ),
-              const SizedBox(height: 8),
-              // Zaman bilgisi
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // Üst kontroller (başlık alanı - isteğe bağlı)
+            Container(
+              padding: EdgeInsets.all(isSmallScreen ? 8 : 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Text(
-                    _formatDuration(_controller.value.position),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
+                  // Tam ekran butonu sadece küçük ekranda gösterme
+                  if (!isSmallScreen)
+                    IconButton(
+                      icon: const Icon(Icons.fullscreen, color: Colors.white),
+                      onPressed: () {
+                        // Tam ekran fonksiyonu eklenebilir
+                      },
+                      iconSize: 24,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
                     ),
-                  ),
-                  Text(
-                    _formatDuration(_controller.value.duration),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                    ),
-                  ),
                 ],
               ),
-            ],
-          ),
-        ),
-      ],
+            ),
+        
+            // Orta kontroller (play/pause)
+            Center(
+              child: IconButton(
+                iconSize: isSmallScreen ? 40 : 64,
+                icon: Icon(
+                  _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                  color: Colors.white,
+                ),
+                onPressed: _togglePlayPause,
+                padding: EdgeInsets.zero,
+              ),
+            ),
+            
+            // Alt kontroller (progress bar ve zaman)
+            Container(
+              padding: EdgeInsets.all(isSmallScreen ? 8 : 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Progress bar
+                  VideoProgressIndicator(
+                    _controller,
+                    allowScrubbing: true,
+                    colors: VideoProgressColors(
+                      playedColor: AppTheme.primaryColor,
+                      bufferedColor: Colors.white.withOpacity(0.3),
+                      backgroundColor: Colors.white.withOpacity(0.1),
+                    ),
+                    padding: EdgeInsets.zero,
+                  ),
+                  if (!isSmallScreen) const SizedBox(height: 4),
+                  // Zaman bilgisi - only show on larger screens
+                  if (!isSmallScreen)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          _formatDuration(_controller.value.position),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                          ),
+                        ),
+                        Text(
+                          _formatDuration(_controller.value.duration),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

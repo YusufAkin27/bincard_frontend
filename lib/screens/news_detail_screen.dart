@@ -295,14 +295,17 @@ class NewsDetailScreen extends StatelessWidget {
             )
           else
             // Thumbnail yoksa direkt video player göster
-            VideoPlayerWidget(
-              videoUrl: news.videoUrl!,
-              autoPlay: false,
-              looping: false,
-              showControls: true,
-              fitToScreen: true,
-              maxHeight: MediaQuery.of(context).size.height * 0.5, // Ekranın max %50'si
-              minHeight: 200, // Minimum 200px
+            AspectRatio(
+              aspectRatio: 16/9,
+              child: VideoPlayerWidget(
+                videoUrl: news.videoUrl!,
+                autoPlay: false,
+                looping: false,
+                showControls: true,
+                fitToScreen: true,
+                maxHeight: MediaQuery.of(context).size.height * 0.5, // Ekranın max %50'si
+                minHeight: 200, // Minimum 200px
+              ),
             ),
         ],
       );

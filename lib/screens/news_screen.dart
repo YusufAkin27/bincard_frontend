@@ -10,6 +10,14 @@ import '../widgets/video_player_widget.dart';
 import 'news_detail_screen.dart';
 import 'package:share_plus/share_plus.dart';
 
+// Video oynatma durumunu takip eden sınıf
+class VideoPlayState {
+  final String newsId;  // Hangi habere ait
+  bool isPlaying;      // Video oynatılıyor mu?
+
+  VideoPlayState({required this.newsId, this.isPlaying = false});
+}
+
 class NewsScreen extends StatefulWidget {
   const NewsScreen({super.key});
 
@@ -22,6 +30,9 @@ class _NewsScreenState extends State<NewsScreen>
   late TabController _tabController;
   bool _isLoading = false;
   List<UserNewsDTO> _allNews = [];
+  
+  // Video oynatma durumunu takip etmek için map
+  Map<int, VideoPlayState> _videoPlayStates = {};
   
   // Filtrelenmiş haber listeleri için getter'lar
   List<UserNewsDTO> get _importantNews => _allNews
@@ -320,7 +331,6 @@ class _NewsScreenState extends State<NewsScreen>
                       top: Radius.circular(16),
                     ),
                     child: Container(
-                      height: 180,
                       width: double.infinity,
                       color: AppTheme.primaryColor.withOpacity(0.1),
                       child: _buildNewsMedia(news),
@@ -716,6 +726,98 @@ class _NewsScreenState extends State<NewsScreen>
     );
   }
 
+  // Video önizleme fonksiyonu
+  void _showVideoPreview(UserNewsDTO news) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.75,
+        decoration: const BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            // Kapatma çubuğu
+            Container(
+              width: 50,
+              height: 5,
+              margin: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.grey[500],
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            // Video başlığı
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                news.title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            // Video player
+            Expanded(
+              child: VideoPlayerWidget(
+                videoUrl: news.videoUrl!,
+                autoPlay: true,
+                looping: false,
+                showControls: true,
+                fitToScreen: true,
+              ),
+            ),
+            // Alt butonlar
+            Container(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  IconButton(
+                    icon: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.share_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    onPressed: () => _shareNews(news),
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.text_snippet_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => NewsDetailScreen(news: news)),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   IconData _getCategoryIcon(NewsType type) {
     switch (type) {
       case NewsType.DUYURU:
@@ -765,148 +867,181 @@ class _NewsScreenState extends State<NewsScreen>
     if (news.videoUrl != null && news.videoUrl!.isNotEmpty) {
       // Thumbnail varsa göster, yoksa video player göster
       if (news.thumbnailUrl != null && news.thumbnailUrl!.isNotEmpty) {
-        debugPrint('🖼️ Video thumbnail gösteriliyor: ${news.thumbnailUrl}');
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            // Thumbnail göster
-            Image.network(
-              news.thumbnailUrl!,
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
-              errorBuilder: (context, error, stackTrace) {
-                debugPrint('❌ Thumbnail yükleme hatası: $error');
-                return Container(
-                  color: Colors.grey[200],
-                  child: const Center(
-                    child: Icon(Icons.movie, size: 60, color: Colors.grey),
-                  ),
-                );
-              },
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return Container(
-                  color: Colors.grey[100],
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      value: loadingProgress.expectedTotalBytes != null
-                          ? loadingProgress.cumulativeBytesLoaded /
-                              loadingProgress.expectedTotalBytes!
-                          : null,
-                      color: AppTheme.primaryColor,
-                    ),
-                  ),
-                );
-              },
-            ),
-            // Gradient overlay
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withOpacity(0.3),
-                  ],
+        debugPrint('🖼️ Video thumbnail gösteriliyor: ${news.videoUrl}');
+        
+        // Eğer bu video oynatılıyorsa video player göster
+        if (isVideoPlaying(news.id)) {
+          // Video player göster
+          return AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(16),
                 ),
               ),
-            ),
-            // Video play butonu overlay
-            Center(
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.9),
-                  shape: BoxShape.circle,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
                 ),
-                child: const Icon(
-                  Icons.play_arrow_rounded,
-                  color: Colors.white,
-                  size: 36,
-                ),
-              ),
-            ),
-            // Video etiketi
-            Positioned(
-              top: 12,
-              right: 12,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.6),
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
+                child: Stack(
+                  alignment: Alignment.center,
                   children: [
-                    Icon(
-                      Icons.play_circle_filled_rounded,
-                      color: Colors.white,
-                      size: 14,
+                    VideoPlayerWidget(
+                      videoUrl: news.videoUrl!,
+                      autoPlay: true,
+                      looping: false,
+                      showControls: true,
+                      fitToScreen: true,
                     ),
-                    SizedBox(width: 4),
-                    Text(
-                      'Video',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
+                    
+                    // Kapatma butonu
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: GestureDetector(
+                        onTap: () => _toggleVideoPlay(news),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.6),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.close,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-          ],
+          );
+        } 
+        
+        // Değilse thumbnail göster
+        return GestureDetector(
+          onTap: () => _toggleVideoPlay(news),
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Thumbnail göster
+                Image.network(
+                  news.thumbnailUrl!,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                  errorBuilder: (context, error, stackTrace) {
+                    debugPrint('❌ Thumbnail yükleme hatası: $error');
+                    return Container(
+                      color: Colors.grey[200],
+                      child: const Center(
+                        child: Icon(Icons.movie, size: 60, color: Colors.grey),
+                      ),
+                    );
+                  },
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Container(
+                      color: Colors.grey[100],
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                              : null,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                // Gradient overlay
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withOpacity(0.3),
+                      ],
+                    ),
+                  ),
+                ),
+                // Video play butonu overlay
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.9),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.play_arrow_rounded,
+                      color: Colors.white,
+                      size: 36,
+                    ),
+                  ),
+                ),
+                // Video etiketi
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.6),
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.play_circle_filled_rounded,
+                          color: Colors.white,
+                          size: 14,
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          'Video',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         );
       } else {
         // Thumbnail yoksa video player göster
         debugPrint('📹 Video player gösteriliyor: ${news.videoUrl}');
-        return Stack(
-          children: [
-            VideoPlayerWidget(
+        return ClipRRect(
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(16),
+          ),
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: VideoPlayerWidget(
               videoUrl: news.videoUrl!,
               autoPlay: false,
               looping: false,
               showControls: true,
               fitToScreen: true,
-              maxHeight: 250, // Liste için maksimum yükseklik
-              minHeight: 150, // Liste için minimum yükseklik
             ),
-            // Video işaret overlay'ı
-            Positioned(
-              top: 12,
-              right: 12,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.6),
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.play_circle_filled_rounded,
-                      color: Colors.white,
-                      size: 14,
-                    ),
-                    SizedBox(width: 4),
-                    Text(
-                      'Video',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+          ),
         );
       }
     }
@@ -914,62 +1049,68 @@ class _NewsScreenState extends State<NewsScreen>
     // Video yoksa resim göster
     if (news.image != null && news.image!.isNotEmpty) {
       debugPrint('📷 Resim gösteriliyor: ${news.image}');
-      return Image.network(
-        news.image!,
-        fit: BoxFit.cover,
-        width: double.infinity,
-        height: double.infinity,
-        errorBuilder: (context, error, stackTrace) {
-          debugPrint('❌ Resim yükleme hatası: $error');
-          return Center(
-            child: Icon(
-              _getCategoryIcon(news.type),
-              size: 60,
-              color: AppTheme.primaryColor.withOpacity(0.5),
-            ),
-          );
-        },
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return Container(
-            color: Colors.grey[100],
-            child: Center(
-              child: CircularProgressIndicator(
-                value: loadingProgress.expectedTotalBytes != null
-                    ? loadingProgress.cumulativeBytesLoaded /
-                        loadingProgress.expectedTotalBytes!
-                    : null,
-                color: AppTheme.primaryColor,
+      return AspectRatio(
+        aspectRatio: 16 / 9,
+        child: Image.network(
+          news.image!,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+          errorBuilder: (context, error, stackTrace) {
+            debugPrint('❌ Resim yükleme hatası: $error');
+            return Center(
+              child: Icon(
+                _getCategoryIcon(news.type),
+                size: 60,
+                color: AppTheme.primaryColor.withOpacity(0.5),
               ),
-            ),
-          );
-        },
+            );
+          },
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Container(
+              color: Colors.grey[100],
+              child: Center(
+                child: CircularProgressIndicator(
+                  value: loadingProgress.expectedTotalBytes != null
+                      ? loadingProgress.cumulativeBytesLoaded /
+                          loadingProgress.expectedTotalBytes!
+                      : null,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+            );
+          },
+        ),
       );
     }
     
     // Ne video ne de resim varsa ikon göster
     debugPrint('🎯 Ne video ne resim var, ikon gösteriliyor');
-    return Container(
-      color: AppTheme.backgroundColor,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              _getCategoryIcon(news.type),
-              size: 64,
-              color: AppTheme.primaryColor.withOpacity(0.3),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _getCategoryName(news.type),
-              style: TextStyle(
-                fontSize: 14,
-                color: AppTheme.textSecondaryColor.withOpacity(0.7),
-                fontWeight: FontWeight.w500,
+    return AspectRatio(
+      aspectRatio: 16 / 9,
+      child: Container(
+        color: AppTheme.backgroundColor,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                _getCategoryIcon(news.type),
+                size: 64,
+                color: AppTheme.primaryColor.withOpacity(0.3),
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                _getCategoryName(news.type),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppTheme.textSecondaryColor.withOpacity(0.7),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1112,5 +1253,28 @@ ${news.summary ?? news.content}
         ),
       );
     });
+  }
+
+  // Video oynatma durumunu değiştiren fonksiyon
+  void _toggleVideoPlay(UserNewsDTO news) {
+    setState(() {
+      if (_videoPlayStates.containsKey(news.id)) {
+        // Mevcut durumu tersine çevir
+        _videoPlayStates[news.id]!.isPlaying = !_videoPlayStates[news.id]!.isPlaying;
+      } else {
+        // Yeni oynatma durumu oluştur
+        _videoPlayStates[news.id] = VideoPlayState(newsId: news.id.toString(), isPlaying: true);
+      }
+    });
+    
+    // Eğer video oynatılmaya başlandıysa, görüntülenme kaydı tut
+    if (_videoPlayStates[news.id]!.isPlaying) {
+      NewsService().recordNewsView(news.id);
+    }
+  }
+  
+  // Video oynatma durumunu kontrol eden getter
+  bool isVideoPlaying(int newsId) {
+    return _videoPlayStates.containsKey(newsId) && _videoPlayStates[newsId]!.isPlaying;
   }
 }
