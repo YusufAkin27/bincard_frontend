@@ -27,11 +27,12 @@ class NewsDetailScreen extends StatelessWidget {
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         backgroundColor: AppTheme.primaryColor,
-        title: const Text('Haber Detayı'),
+        title: const Text('Haber Detayı', style: TextStyle(color: Colors.white)),
         elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white), // Geri dönme butonu beyaz
         actions: [
           IconButton(
-            icon: const Icon(Icons.share),
+            icon: const Icon(Icons.share, color: Colors.white),
             onPressed: () {
               // Haberi paylaş
               Share.share(
@@ -40,7 +41,7 @@ class NewsDetailScreen extends StatelessWidget {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.bookmark_border),
+            icon: const Icon(Icons.bookmark_border, color: Colors.white),
             onPressed: () {
               // Haberi kaydet - gelecekte eklenecek
               ScaffoldMessenger.of(context).showSnackBar(

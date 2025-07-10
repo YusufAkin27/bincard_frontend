@@ -117,8 +117,9 @@ class _NewsScreenState extends State<NewsScreen>
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         backgroundColor: AppTheme.primaryColor,
-        title: const Text('Haberler ve Duyurular'),
+        title: const Text('Haberler ve Duyurular', style: TextStyle(color: Colors.white)),
         elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white), // Geri dönme butonu beyaz
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.white,
@@ -126,7 +127,10 @@ class _NewsScreenState extends State<NewsScreen>
           labelStyle: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.bold,
+            color: Colors.white, // Tab yazıları beyaz
           ),
+          labelColor: Colors.white, // Seçili tab rengi beyaz
+          unselectedLabelColor: Colors.white70, // Seçili olmayan tab rengi beyaz ama daha soluk
           tabs: const [
             Tab(text: 'Tümü'),
             Tab(text: 'Önemli'),
