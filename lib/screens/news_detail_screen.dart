@@ -35,9 +35,7 @@ class NewsDetailScreen extends StatelessWidget {
             icon: const Icon(Icons.share, color: Colors.white),
             onPressed: () {
               // Haberi paylaş
-              Share.share(
-                '${news.title}\n\n${news.content}\n\nBincard uygulamasından paylaşıldı.',
-              );
+              _shareNews(news);
             },
           ),
           IconButton(
@@ -335,5 +333,46 @@ class NewsDetailScreen extends StatelessWidget {
         color: AppTheme.primaryColor.withOpacity(0.5),
       ),
     );
+  }
+
+  // Haberi paylaşma fonksiyonu
+  void _shareNews(UserNewsDTO news) {
+    // Haber başlığı ve içeriği için maksimum uzunluk
+    const int maxContentLength = 250;
+    
+    // Paylaşım içeriğini hazırla
+    final String truncatedContent = news.content.length > maxContentLength 
+      ? '${news.content.substring(0, maxContentLength)}...' 
+      : news.content;
+    
+    String shareContent = """
+📰 ${news.title}
+
+$truncatedContent
+""";
+
+    // Uygulama deep link URL'i oluştur (news-detail sayfasına yönlendiren)
+    final String appDeepLink = "bincard://news-detail?id=${news.id}";
+
+    // Deep link bilgisini ekle
+    shareContent += "\n\n📱 Haberin tamamını görmek için tıklayın: $appDeepLink";
+
+    // Alternatif olarak web sayfası linki
+    final String webUrl = "https://bincard.com/news/${news.id}";
+    shareContent += "\n🌐 Web: $webUrl";
+
+    // Uygulama bilgisi ekle
+    shareContent += "\n\n📊 Şehir Kartım uygulamasından paylaşıldı";
+
+    // Paylaşım seçeneklerini göster
+    Share.share(
+      shareContent,
+      subject: news.title,
+    ).then((result) {
+      // Paylaşım yapıldıktan sonra kullanıcıya bilgi vermek için:
+      // Not: Share.share() metodu paylaşım yapıldığında result döndürüyor
+      // Ancak bu genellikle platform tarafından belirlenir ve her zaman doğru
+      // değeri döndürmeyebilir.
+    });
   }
 }

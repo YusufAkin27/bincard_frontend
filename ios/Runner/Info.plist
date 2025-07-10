@@ -50,5 +50,27 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
+	
+	<!-- Deep Link Ayarları -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<!-- Özel URL şeması için -->
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.example.city_card</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>bincard</string>
+			</array>
+		</dict>
+	</array>
+	
+	<!-- Universal Link için (isteğe bağlı) -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:bincard.com</string>
+	</array>
 </dict>
 </plist>

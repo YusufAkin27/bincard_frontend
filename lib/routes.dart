@@ -13,6 +13,7 @@ import 'screens/qr_code_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'screens/news_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/news_detail_screen.dart';
 
 // Otobüs ile ilgili ekranlar
 import 'screens/bus_routes_screen.dart';
@@ -28,6 +29,7 @@ import 'screens/search_screen.dart';
 import 'screens/feedback_screen.dart';
 import 'screens/report_problem_screen.dart';
 import 'screens/video_player_screen.dart';
+import 'screens/news_detail_from_id_screen.dart';
 
 // Kimlik doğrulama ekranları
 import 'screens/auth/login_screen.dart';
@@ -73,6 +75,10 @@ class AppRoutes {
   static const String feedback = '/feedback';
   static const String reportProblem = '/report-problem';
   static const String videoPlayer = '/video-player';
+  static const String newsDetail = '/news-detail'; // Haber detay sayfası için route
+
+  // Önceki eski referanslar için geçici çözüm
+  static const String webView = '/web-view';
 
   // Tüm route'ları içeren map
   static final routes = <String, WidgetBuilder>{
@@ -208,6 +214,28 @@ class AppRoutes {
         return MaterialPageRoute(
           builder: (context) => const VideoPlayerScreen(),
         );
+
+      case newsDetail:
+        final args = settings.arguments as Map<String, dynamic>?;
+        final newsId = args?['newsId'] as int?;
+        final news = args?['news'];
+        
+        if (news != null) {
+          // Doğrudan news objesi verilmişse, NewsDetailScreen kullan
+          return MaterialPageRoute(
+            builder: (context) => NewsDetailScreen(news: news),
+          );
+        } else if (newsId != null) {
+          // Haber ID'sine göre haber detay sayfasına yönlendir
+          return MaterialPageRoute(
+            builder: (context) => NewsDetailFromIdScreen(newsId: newsId),
+          );
+        } else {
+          // Eğer ne newsId ne de news yoksa, haberlerin listelendiği sayfaya yönlendir
+          return MaterialPageRoute(
+            builder: (context) => const NewsScreen(),
+          );
+        }
 
       default:
         // Tanımlanmamış bir route için 404 sayfası

@@ -354,18 +354,82 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
   
-  void _navigateToHome() {
+  void _navigateToHome() async {
     debugPrint('_navigateToHome metodu çağrıldı');
-    // Daha güvenli yönlendirme işlemi
+    
+    // Bekleyen deep link var mı kontrol et
+    final secureStorage = SecureStorageService();
+    final pendingDeepLink = await secureStorage.read('pendingDeepLink');
+    
+    if (pendingDeepLink != null && pendingDeepLink.isNotEmpty) {
+      debugPrint('🔗 Bekleyen deep link bulundu: $pendingDeepLink');
+      
+      // Deep link'i işle
+      try {
+        final uri = Uri.parse(pendingDeepLink);
+        // Deep link'i temizle
+        await secureStorage.delete('pendingDeepLink');
+        
+        // news-detail veya /news/ path'i içeren URI'ları işle
+        if (uri.host == 'news-detail' || uri.path.contains('/news/')) {
+          // URI'den haber ID'sini çıkart
+          String? newsId;
+          
+          if (uri.host == 'news-detail') {
+            newsId = uri.queryParameters['id'];
+          } else if (uri.path.contains('/news/')) {
+            // /news/{id} formatındaki path'i işle
+            final pathSegments = uri.pathSegments;
+            final newsIndex = pathSegments.indexOf('news');
+            if (newsIndex >= 0 && newsIndex < pathSegments.length - 1) {
+              newsId = pathSegments[newsIndex + 1];
+            }
+          }
+          
+          if (newsId != null && newsId.isNotEmpty) {
+            final id = int.parse(newsId);
+            debugPrint('🔗 Giriş sonrası haber ID: $id için deep link yönlendirmesi yapılıyor');
+            
+            // Daha güvenli yönlendirme işlemi
+            if (mounted) {
+              // Önce ana sayfaya yönlendir, sonra haber detay sayfasına
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => const HomeScreen()),
+                (route) => false, // Tüm yığını temizle
+              );
+              
+              // Haber detay sayfasına yönlendirmeden önce kısa bir bildirim göster
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Paylaşılan habere yönlendiriliyorsunuz...'),
+                  duration: const Duration(seconds: 2),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+              
+              // Ana sayfaya yönlendirdikten sonra kısa bir gecikme ile haber detay sayfasına git
+              Future.delayed(const Duration(milliseconds: 500), () {
+                Navigator.of(context).pushNamed(
+                  AppRoutes.newsDetail,
+                  arguments: {'newsId': id},
+                );
+              });
+              return; // İşlem tamamlandı, fonksiyondan çık
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('❌ Deep link ayrıştırma hatası: $e');
+        // Hata durumunda normal yönlendirmeye devam et
+      }
+    }
+    
+    // Deep link yoksa veya işlenemediyse normal olarak ana sayfaya yönlendir
     if (mounted) {
-      // Tüm yığını temizleyerek ana sayfaya yönlendir
-      debugPrint('Ana sayfaya yönlendiriliyor...');
-      Future.delayed(Duration.zero, () {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-          (route) => false, // Tüm yığını temizle
-        );
-      });
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+        (route) => false, // Tüm route yığınını temizle
+      );
     }
   }
 

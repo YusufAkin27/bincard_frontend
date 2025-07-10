@@ -1197,4 +1197,15 @@ class AuthService {
     ];
     return exemptRoutes.contains(route);
   }
+
+  // Token'ın varlığını kontrol et (isAuthenticated ile aynı işlevi görür)
+  Future<bool> checkToken() async {
+    final token = await _secureStorage.getAccessToken();
+    return token != null && token.isNotEmpty;
+  }
+  
+  // Kullanıcının giriş yapmış olup olmadığını kontrol et
+  Future<bool> isAuthenticated() async {
+    return await checkToken();
+  }
 }

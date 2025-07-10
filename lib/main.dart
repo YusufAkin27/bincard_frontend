@@ -12,6 +12,9 @@ import 'services/user_service.dart';
 import 'dart:async';
 import 'services/secure_storage_service.dart';
 import 'services/app_state_service.dart';
+import 'package:flutter/services.dart';
+import 'dart:async';
+import 'package:app_links/app_links.dart';
 
 // Global navigatorKey - token service gibi servislerden sayfalar arası geçiş için
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -140,15 +143,116 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  late AppLinks _appLinks;
+  StreamSubscription<Uri>? _linkSubscription;
+
   @override
   void initState() {
     super.initState();
     // Yaşam döngüsü değişikliklerini dinle
     WidgetsBinding.instance.addObserver(this);
+    
+    // Deep linking için initPlatformState metodunu çağır
+    _initDeepLinkHandling();
+  }
+  
+  // Deep linking için gerekli hazırlıkları yap
+  Future<void> _initDeepLinkHandling() async {
+    _appLinks = AppLinks();
+    
+    // Uygulama başlatıldığında gelen deep link'i al
+    try {
+      final uri = await _appLinks.getInitialLink();
+      if (uri != null) {
+        debugPrint('🔗 İlk açılışta deep link yakalandı: $uri');
+        _handleDeepLink(uri);
+      }
+    } catch (e) {
+      debugPrint('Deep link ilk açılışta hata oluştu: $e');
+    }
+    
+    // Uygulama çalışırken gelen deep linkleri dinle
+    _linkSubscription = _appLinks.uriLinkStream.listen((uri) {
+      debugPrint('🔗 Uygulama çalışırken deep link yakalandı: $uri');
+      _handleDeepLink(uri);
+    }, onError: (e) {
+      debugPrint('Deep link dinlerken hata oluştu: $e');
+    });
+  }
+  
+  // Deep link'i işleme fonksiyonu
+  void _handleDeepLink(Uri uri) {
+    if (!mounted) return;
+    
+    // Önce kullanıcının giriş yapıp yapmadığını kontrol et
+    final authService = Provider.of<AuthService>(context, listen: false);
+    
+    debugPrint('🔗 Deep link işleniyor: $uri, host: ${uri.host}, path: ${uri.path}');
+    
+    if (uri.host == 'news-detail' || uri.path.contains('/news/')) {
+      // URI'den haber ID'sini çıkart
+      String? newsId;
+      
+      if (uri.host == 'news-detail') {
+        newsId = uri.queryParameters['id'];
+      } else if (uri.path.contains('/news/')) {
+        // /news/{id} formatındaki path'i işle
+        final pathSegments = uri.pathSegments;
+        final newsIndex = pathSegments.indexOf('news');
+        if (newsIndex >= 0 && newsIndex < pathSegments.length - 1) {
+          newsId = pathSegments[newsIndex + 1];
+        }
+      }
+      
+      if (newsId != null && newsId.isNotEmpty) {
+        try {
+          final id = int.parse(newsId);
+          debugPrint('🔗 Haber ID: $id için deep link yönlendirmesi yapılıyor');
+          
+          authService.checkToken().then((hasToken) {
+            if (hasToken) {
+              // Kullanıcı giriş yapmışsa, doğrudan haber detay sayfasına yönlendir
+              navigatorKey.currentState?.pushNamed(
+                AppRoutes.newsDetail,
+                arguments: {'newsId': id},
+              );
+            } else {
+              // Kullanıcı giriş yapmamışsa, login ekranına yönlendir
+              // ve başarılı girişten sonra haber detay sayfasına yönlendirmek için bilgiyi sakla
+              final secureStorage = SecureStorageService();
+              secureStorage.write('pendingDeepLink', uri.toString()).then((_) {
+                debugPrint('🔗 Bekleyen deep link kaydedildi: ${uri.toString()}');
+                
+                // Kullanıcıya bilgi mesajı göster ve login ekranına yönlendir
+                if (navigatorKey.currentContext != null) {
+                  final snackBar = SnackBar(
+                    content: const Text('Bu içeriği görüntülemek için lütfen giriş yapın'),
+                    duration: const Duration(seconds: 3),
+                    behavior: SnackBarBehavior.floating,
+                  );
+                  
+                  ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(snackBar);
+                  
+                  // Kısa bir gecikme ile login ekranına yönlendir
+                  Future.delayed(const Duration(milliseconds: 500), () {
+                    navigatorKey.currentState?.pushNamed(AppRoutes.login);
+                  });
+                }
+              });
+            }
+          });
+        } catch (e) {
+          debugPrint('Deep link parametresi ayrıştırılırken hata: $e');
+        }
+      }
+    }
   }
 
   @override
   void dispose() {
+    // Deep link aboneliğini iptal et
+    _linkSubscription?.cancel();
+    
     // Dinlemeyi durdur
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();

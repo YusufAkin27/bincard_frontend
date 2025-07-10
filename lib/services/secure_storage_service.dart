@@ -152,4 +152,26 @@ class SecureStorageService {
   Future<String?> getUserId() async {
     return await _secureStorage.read(key: _userIdKey);
   }
+
+  // Generic key-value operations
+  Future<void> write(String key, String value) async {
+    await _secureStorage.write(key: key, value: value);
+  }
+  
+  Future<String?> read(String key) async {
+    return await _secureStorage.read(key: key);
+  }
+  
+  // Legacy support (aliasing to existing methods)
+  Future<void> setString(String key, String value) async {
+    return write(key, value);
+  }
+  
+  Future<String?> getString(String key) async {
+    return read(key);
+  }
+  
+  Future<void> deleteKey(String key) async {
+    return delete(key);
+  }
 }

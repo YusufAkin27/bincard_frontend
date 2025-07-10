@@ -8,6 +8,7 @@ import '../models/news/platform_type.dart';
 import '../services/news_service.dart';
 import '../widgets/video_player_widget.dart';
 import 'news_detail_screen.dart';
+import 'package:share_plus/share_plus.dart';
 
 class NewsScreen extends StatefulWidget {
   const NewsScreen({super.key});
@@ -322,7 +323,8 @@ class _NewsScreenState extends State<NewsScreen>
                       IconButton(
                         icon: Icon(Icons.share, color: AppTheme.primaryColor),
                         onPressed: () {
-                          // Haberi paylaş - bu özellik gelecekte eklenecek
+                          // Haberi paylaş
+                          _shareNews(news);
                         },
                       ),
                       IconButton(
@@ -738,5 +740,46 @@ class _NewsScreenState extends State<NewsScreen>
         summary: 'Etkinlik tanıtım videosu',
       ),
     ];
+  }
+
+  // Haberi paylaşma fonksiyonu
+  void _shareNews(UserNewsDTO news) {
+    // Paylaşım içeriğini hazırla
+    String shareContent = """
+${news.title}
+
+${news.summary ?? news.content}
+""";
+
+    // Uygulama deep link URL'i oluştur (news-detail sayfasına yönlendiren)
+    final String appDeepLink = "bincard://news-detail?id=${news.id}";
+
+    // Deep link bilgisini ekle
+    shareContent += "\n\nHaberi uygulamada görüntülemek için tıklayın: $appDeepLink";
+
+    // Alternatif olarak web sayfası linki (Web uygulaması varsa)
+    final String webUrl = "https://bincard.com/news/${news.id}";
+    shareContent += "\nveya web sitesinde görüntüleyin: $webUrl";
+
+    // Uygulama bilgisi ekle
+    shareContent += "\n\nBincard uygulamasından paylaşıldı.";
+
+    // Paylaşım seçeneklerini göster
+    Share.share(
+      shareContent,
+      subject: news.title,
+    ).then((result) {
+      // Paylaşım tamamlandığında analytics veya diğer işlemler için
+      debugPrint('📤 Haber paylaşıldı: ${news.title}');
+    }).catchError((error) {
+      debugPrint('❌ Paylaşım hatası: $error');
+      // Hata durumunda kullanıcıya bilgi ver
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Paylaşım sırasında bir hata oluştu.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    });
   }
 }
