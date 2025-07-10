@@ -726,90 +726,89 @@ class _NewsScreenState extends State<NewsScreen>
     );
   }
 
-  // Video önizleme fonksiyonu
+  // Video tam ekran fonksiyonu
   void _showVideoPreview(UserNewsDTO news) {
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.75,
-        decoration: const BoxDecoration(
-          color: Colors.black,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
+      barrierDismissible: true,
+      barrierColor: Colors.black,
+      builder: (context) => Dialog.fullscreen(
+        backgroundColor: Colors.black,
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            // Kapatma çubuğu
-            Container(
-              width: 50,
-              height: 5,
-              margin: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.grey[500],
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            // Video başlığı
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                news.title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+            // Video player - ortalanmış, ekranın ortasında
+            Positioned.fill(
+              child: Center(
+                child: AspectRatio(
+                  aspectRatio: 16/9, // Video için standart aspect ratio
+                  child: VideoPlayerWidget(
+                    videoUrl: news.videoUrl!,
+                    autoPlay: true,
+                    looping: false,
+                    showControls: true,
+                    fitToScreen: true,
+                  ),
                 ),
-                textAlign: TextAlign.center,
               ),
             ),
-            // Video player
-            Expanded(
-              child: VideoPlayerWidget(
-                videoUrl: news.videoUrl!,
-                autoPlay: true,
-                looping: false,
-                showControls: true,
-                fitToScreen: true,
+            
+            // Kapatma butonu - sağ üstte, daha belirgin
+            Positioned(
+              top: 24,
+              right: 24,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white30, width: 1),
+                  ),
+                  child: const Icon(
+                    Icons.close,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
               ),
             ),
-            // Alt butonlar
-            Container(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  IconButton(
-                    icon: const Icon(
-                      Icons.close,
-                      color: Colors.white,
-                      size: 28,
+            
+            // Alt butonlar (paylaşma ve haber detayı) - İsteğe bağlı, ekranın alt kısmında
+            Positioned(
+              bottom: 16,
+              left: 0,
+              right: 0,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: const Icon(
+                        Icons.share_rounded,
+                        color: Colors.white70,
+                        size: 24,
+                      ),
+                      onPressed: () => _shareNews(news),
                     ),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.share_rounded,
-                      color: Colors.white,
-                      size: 24,
+                    IconButton(
+                      icon: const Icon(
+                        Icons.text_snippet_rounded,
+                        color: Colors.white70,
+                        size: 24,
+                      ),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => NewsDetailScreen(news: news)),
+                        );
+                      },
                     ),
-                    onPressed: () => _shareNews(news),
-                  ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.text_snippet_rounded,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                    onPressed: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => NewsDetailScreen(news: news)),
-                      );
-                    },
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],
@@ -896,7 +895,7 @@ class _NewsScreenState extends State<NewsScreen>
                       fitToScreen: true,
                     ),
                     
-                    // Kapatma butonu
+                    // Kapatma butonu - sağ üstte
                     Positioned(
                       top: 8,
                       right: 8,
@@ -910,6 +909,27 @@ class _NewsScreenState extends State<NewsScreen>
                           ),
                           child: const Icon(
                             Icons.close,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ),
+                    
+                    // Büyütme butonu - sağ altta
+                    Positioned(
+                      bottom: 8,
+                      right: 8,
+                      child: GestureDetector(
+                        onTap: () => _showVideoPreview(news),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.6),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.fullscreen,
                             color: Colors.white,
                             size: 20,
                           ),
@@ -990,37 +1010,7 @@ class _NewsScreenState extends State<NewsScreen>
                     ),
                   ),
                 ),
-                // Video etiketi
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.6),
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.play_circle_filled_rounded,
-                          color: Colors.white,
-                          size: 14,
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          'Video',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                // Video etiketi kaldırıldı
               ],
             ),
           ),

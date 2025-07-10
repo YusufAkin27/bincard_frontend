@@ -372,23 +372,13 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         return Column(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // Üst kontroller (başlık alanı - isteğe bağlı)
+            // Üst kontroller boş bırakıldı (sağ üstteki tam ekran butonu kaldırıldı)
             Container(
               padding: EdgeInsets.all(isSmallScreen ? 8 : 16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  // Tam ekran butonu sadece küçük ekranda gösterme
-                  if (!isSmallScreen)
-                    IconButton(
-                      icon: const Icon(Icons.fullscreen, color: Colors.white),
-                      onPressed: () {
-                        // Tam ekran fonksiyonu eklenebilir
-                      },
-                      iconSize: 24,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
+                  // Burada daha önce tam ekran butonu vardı, kaldırıldı
                 ],
               ),
             ),
