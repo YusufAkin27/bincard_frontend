@@ -223,14 +223,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.refresh, color: AppTheme.primaryColor),
-            onPressed: () async {
-              debugPrint('🔄 Manuel profil yenilemesi başlatıldı');
-              await _clearAndRefreshProfile();
-            },
-            tooltip: 'Profili Yenile',
-          ),
-          IconButton(
             icon: Icon(Icons.settings, color: AppTheme.primaryColor),
             onPressed: () {
               Navigator.push(
