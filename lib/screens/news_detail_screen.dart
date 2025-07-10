@@ -6,142 +6,392 @@ import '../models/news/news_priority.dart';
 import '../services/news_service.dart';
 import '../widgets/video_player_widget.dart';
 import 'package:intl/intl.dart';
-import 'package:intl/date_symbol_data_local.dart'; // Import for locale initialization
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:flutter/services.dart';
 
-class NewsDetailScreen extends StatelessWidget {
+class NewsDetailScreen extends StatefulWidget {
   final UserNewsDTO news;
 
   const NewsDetailScreen({super.key, required this.news});
 
   @override
+  State<NewsDetailScreen> createState() => _NewsDetailScreenState();
+}
+
+class _NewsDetailScreenState extends State<NewsDetailScreen> {
+  bool _isLiked = false;
+  bool _showFullVideo = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _isLiked = widget.news.likedByUser ?? false;
+    
+    // Görüntülenme kaydı
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NewsService().recordNewsView(widget.news.id);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Initialize the date formatting for Turkish locale
     initializeDateFormatting('tr_TR', null);
     
-    final bool isImportant = news.priority == NewsPriority.YUKSEK || 
-                            news.priority == NewsPriority.COK_YUKSEK ||
-                            news.priority == NewsPriority.KRITIK;
-
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: AppTheme.primaryColor,
-        title: const Text('Haber Detayı', style: TextStyle(color: Colors.white)),
+        foregroundColor: Colors.white,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white), // Geri dönme butonu beyaz
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.share, color: Colors.white),
-            onPressed: () {
-              // Haberi paylaş
-              _shareNews(news);
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.bookmark_border, color: Colors.white),
-            onPressed: () {
-              // Haberi kaydet - gelecekte eklenecek
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Bu özellik yakında eklenecek!'),
-                ),
-              );
-            },
-          ),
-        ],
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        iconTheme: const IconThemeData(color: Colors.white), // Geri dönüş butonunu beyaz yap
+        title: const Text(
+          'Haber Detayı', 
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w500,
+          )
+        ),
       ),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Media alanı - video için dinamik boyut
-            _buildNewsDetailMediaContainer(context, news),
+            // Video oynatma alanı
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: _buildVideoSection(),
+            ),
+            
+            // Etiketler ve beğen/paylaş butonları
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  // Sol tarafta kategori etiketleri
+                  Expanded(
+                    child: _buildCategoryTags(),
+                  ),
+                  
+                  // Sağ tarafta beğen ve paylaş butonları
                   Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
+                      // Beğen butonu
+                      IconButton(
+                        onPressed: () {
+                          setState(() {
+                            _isLiked = !_isLiked;
+                          });
+                        },
+                        icon: Icon(
+                          _isLiked ? Icons.favorite : Icons.favorite_outline,
+                          color: _isLiked ? Colors.red : Colors.grey,
+                          size: 22,
                         ),
-                        decoration: BoxDecoration(
-                          color: _getCategoryColor(news.type).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          _getCategoryName(news.type),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: _getCategoryColor(news.type),
-                          ),
-                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        visualDensity: VisualDensity.compact,
                       ),
-                      if (isImportant) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.accentColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.star,
-                                size: 12,
-                                color: AppTheme.accentColor,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Önemli',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.accentColor,
-                                ),
-                              ),
-                            ],
-                          ),
+                      const SizedBox(width: 12),
+                      
+                      // Paylaş butonu
+                      IconButton(
+                        onPressed: () => _shareNews(widget.news),
+                        icon: const Icon(
+                          Icons.share_outlined,
+                          color: Colors.grey,
+                          size: 20,
                         ),
-                      ],
-                      const Spacer(),
-                      Text(
-                        _formatDate(DateTime.now()), // Gerçek tarih yoksa şu anki tarihi göster
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.textSecondaryColor,
-                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        visualDensity: VisualDensity.compact,
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+            
+            // Tarih
+            Padding(
+              padding: const EdgeInsets.only(left: 16, right: 16, top: 8),
+              child: Text(
+                _formatDate(widget.news.createdAt ?? DateTime.now()),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textSecondaryColor,
+                ),
+              ),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Başlık ve içerik
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Başlık
                   Text(
-                    news.title,
+                    widget.news.title,
                     style: const TextStyle(
-                      fontSize: 24,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
+                      color: Color(0xFF202020),
+                      height: 1.3,
                     ),
                   ),
+                  
                   const SizedBox(height: 16),
+                  
+                  // Özet kaldırıldı
+                  
+                  // Ana içerik
                   Text(
-                    news.content,
-                    style: const TextStyle(fontSize: 16, height: 1.6),
+                    widget.news.content,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: AppTheme.textPrimaryColor,
+                      height: 1.6,
+                    ),
                   ),
+                  
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildVideoSection() {
+    final bool hasVideo = widget.news.videoUrl != null && widget.news.videoUrl!.isNotEmpty;
+    final bool hasImage = widget.news.image != null && widget.news.image!.isNotEmpty;
+    final bool hasThumbnail = widget.news.thumbnailUrl != null && widget.news.thumbnailUrl!.isNotEmpty;
+    
+    // Sadece video/resim alanı, hiçbir ek öğe içermiyor
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: Colors.grey[100],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            spreadRadius: 1,
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: _buildMediaContent(hasVideo, hasImage, hasThumbnail),
+      ),
+    );
+  }
+
+  Widget _buildMediaContent(bool hasVideo, bool hasImage, bool hasThumbnail) {
+    // Medya içeriği yoksa boş container döndür
+    if (!hasVideo && !hasImage && !hasThumbnail) {
+      return Container(
+        width: double.infinity,
+        height: 200,
+        color: Colors.grey[200],
+        child: Center(
+          child: Icon(
+            _getCategoryIcon(widget.news.type),
+            size: 48,
+            color: Colors.grey[400],
+          ),
+        ),
+      );
+    }
+
+    // Video gösterilecekse
+    if (_showFullVideo && hasVideo) {
+      return SizedBox(
+        width: double.infinity,
+        height: 220,
+        child: VideoPlayerWidget(
+          videoUrl: widget.news.videoUrl!,
+          autoPlay: true,
+          looping: false,
+          showControls: true,
+          fitToScreen: true,
+          showCloseButton: true,
+          showFullscreenButton: true,
+          onClosePressed: () => setState(() {
+            _showFullVideo = false;
+          }),
+          onFullscreenPressed: () => _showVideoFullscreen(),
+        ),
+      );
+    }
+    
+    // Video var ama oynatılmıyorsa thumbnail göster
+    if (hasVideo && hasThumbnail) {
+      return GestureDetector(
+        onTap: () => setState(() {
+          _showFullVideo = true;
+        }),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Thumbnail
+            SizedBox(
+              width: double.infinity,
+              height: 220,
+              child: Image.network(
+                widget.news.thumbnailUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: Colors.grey[200],
+                    child: const Center(
+                      child: Icon(Icons.image_not_supported, size: 40, color: Colors.grey),
+                    ),
+                  );
+                },
+              ),
+            ),
+            
+            // Video oynat butonu
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.5),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.play_arrow_rounded,
+                color: Colors.white,
+                size: 36,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    // Sadece resim varsa
+    if (hasImage) {
+      return SizedBox(
+        width: double.infinity,
+        height: 220,
+        child: Image.network(
+          widget.news.image!,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              color: Colors.grey[200],
+              child: const Center(
+                child: Icon(Icons.image_not_supported, size: 40, color: Colors.grey),
+              ),
+            );
+          },
+        ),
+      );
+    }
+    
+    // Video var ama thumbnail yoksa
+    if (hasVideo) {
+      return SizedBox(
+        width: double.infinity,
+        height: 220,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              color: Colors.grey[200],
+              width: double.infinity,
+              height: 220,
+            ),
+            GestureDetector(
+              onTap: () => setState(() {
+                _showFullVideo = true;
+              }),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.8),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.play_arrow_rounded,
+                  color: Colors.white,
+                  size: 36,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildCategoryTags() {
+    final bool isImportant = widget.news.priority == NewsPriority.YUKSEK || 
+                          widget.news.priority == NewsPriority.COK_YUKSEK ||
+                          widget.news.priority == NewsPriority.KRITIK;
+    
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        // Kategori etiketi
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: _getCategoryColor(widget.news.type).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            _getCategoryName(widget.news.type),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: _getCategoryColor(widget.news.type),
+            ),
+          ),
+        ),
+        
+        // Önemli etiketi
+        if (isImportant)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppTheme.accentColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.star,
+                  size: 12,
+                  color: AppTheme.accentColor,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'Önemli',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.accentColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 
@@ -188,162 +438,9 @@ class NewsDetailScreen extends StatelessWidget {
     return type.name;
   }
 
-  Widget _buildNewsDetailMediaContainer(BuildContext context, UserNewsDTO news) {
-    // Video varsa dinamik boyutlu container, resim varsa sabit boyutlu
-    if (news.videoUrl != null && news.videoUrl!.isNotEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(16),
-        child: _buildNewsDetailMedia(context, news),
-      );
-    } else {
-      // Resim için sabit boyutlu container
-      return Container(
-        height: 200,
-        width: double.infinity,
-        color: AppTheme.primaryColor.withOpacity(0.1),
-        child: _buildNewsDetailMedia(context, news),
-      );
-    }
-  }
-
-  Widget _buildNewsDetailMedia(BuildContext context, UserNewsDTO news) {
-    // Video varsa video player göster
-    if (news.videoUrl != null && news.videoUrl!.isNotEmpty) {
-      // Video player ile birlikte thumbnail kullanımı
-      return Column(
-        children: [
-          // Varsa thumbnail göster
-          if (news.thumbnailUrl != null && news.thumbnailUrl!.isNotEmpty)
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                // Thumbnail image
-                Image.network(
-                  news.thumbnailUrl!,
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                  height: 200,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      height: 200,
-                      color: Colors.grey[300],
-                      child: const Center(
-                        child: Icon(Icons.image_not_supported, size: 50, color: Colors.grey),
-                      ),
-                    );
-                  },
-                ),
-                // Play butonu overlay
-                IconButton(
-                  icon: const Icon(
-                    Icons.play_circle_fill,
-                    size: 60,
-                    color: Colors.white,
-                  ),
-                  onPressed: () {
-                    // Video player'a geçiş yap
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (context) => Container(
-                        height: MediaQuery.of(context).size.height * 0.75,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                        ),
-                        child: Column(
-                          children: [
-                            // Kapatma çubuğu
-                            Container(
-                              width: 50,
-                              height: 5,
-                              margin: const EdgeInsets.symmetric(vertical: 10),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[300],
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            // Video başlığı
-                            Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Text(
-                                news.title,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            // Video player
-                            Expanded(
-                              child: VideoPlayerWidget(
-                                videoUrl: news.videoUrl!,
-                                autoPlay: true,
-                                looping: false,
-                                showControls: true,
-                                fitToScreen: true,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            )
-          else
-            // Thumbnail yoksa direkt video player göster
-            AspectRatio(
-              aspectRatio: 16/9,
-              child: VideoPlayerWidget(
-                videoUrl: news.videoUrl!,
-                autoPlay: false,
-                looping: false,
-                showControls: true,
-                fitToScreen: true,
-                maxHeight: MediaQuery.of(context).size.height * 0.5, // Ekranın max %50'si
-                minHeight: 200, // Minimum 200px
-              ),
-            ),
-        ],
-      );
-    }
-    
-    // Video yoksa resim göster
-    if (news.image != null && news.image!.isNotEmpty) {
-      return Image.network(
-        news.image!,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
-          return Center(
-            child: Icon(
-              _getCategoryIcon(news.type),
-              size: 80,
-              color: AppTheme.primaryColor.withOpacity(0.5),
-            ),
-          );
-        },
-      );
-    }
-    
-    // Ne video ne de resim varsa ikon göster
-    return Center(
-      child: Icon(
-        _getCategoryIcon(news.type),
-        size: 80,
-        color: AppTheme.primaryColor.withOpacity(0.5),
-      ),
-    );
-  }
-
-  // Haberi paylaşma fonksiyonu
   void _shareNews(UserNewsDTO news) {
-    // Haber başlığı ve içeriği için maksimum uzunluk
     const int maxContentLength = 250;
     
-    // Paylaşım içeriğini hazırla
     final String truncatedContent = news.content.length > maxContentLength 
       ? '${news.content.substring(0, maxContentLength)}...' 
       : news.content;
@@ -354,28 +451,43 @@ class NewsDetailScreen extends StatelessWidget {
 $truncatedContent
 """;
 
-    // Uygulama deep link URL'i oluştur (news-detail sayfasına yönlendiren)
     final String appDeepLink = "bincard://news-detail?id=${news.id}";
-
-    // Deep link bilgisini ekle
     shareContent += "\n\n📱 Haberin tamamını görmek için tıklayın: $appDeepLink";
 
-    // Alternatif olarak web sayfası linki
     final String webUrl = "https://bincard.com/news/${news.id}";
     shareContent += "\n🌐 Web: $webUrl";
 
-    // Uygulama bilgisi ekle
     shareContent += "\n\n📊 Şehir Kartım uygulamasından paylaşıldı";
 
-    // Paylaşım seçeneklerini göster
     Share.share(
       shareContent,
       subject: news.title,
-    ).then((result) {
-      // Paylaşım yapıldıktan sonra kullanıcıya bilgi vermek için:
-      // Not: Share.share() metodu paylaşım yapıldığında result döndürüyor
-      // Ancak bu genellikle platform tarafından belirlenir ve her zaman doğru
-      // değeri döndürmeyebilir.
-    });
+    );
+  }
+
+  // Videoyu tam ekran gösterme fonksiyonu
+  void _showVideoFullscreen() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black,
+      builder: (context) => Dialog.fullscreen(
+        backgroundColor: Colors.black,
+        child: Center(
+          child: AspectRatio(
+            aspectRatio: 16/9, // Video için standart aspect ratio
+            child: VideoPlayerWidget(
+              videoUrl: widget.news.videoUrl!,
+              autoPlay: true,
+              looping: false,
+              showControls: true,
+              fitToScreen: true,
+              showCloseButton: true,
+              onClosePressed: () => Navigator.pop(context),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

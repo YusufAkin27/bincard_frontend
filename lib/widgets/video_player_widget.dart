@@ -12,6 +12,10 @@ class VideoPlayerWidget extends StatefulWidget {
   final double? minHeight;
   final bool fitToScreen;
   final bool showThumbnail;
+  final bool showFullscreenButton;
+  final bool showCloseButton;
+  final VoidCallback? onFullscreenPressed;
+  final VoidCallback? onClosePressed;
 
   const VideoPlayerWidget({
     super.key,
@@ -24,6 +28,10 @@ class VideoPlayerWidget extends StatefulWidget {
     this.minHeight,
     this.fitToScreen = true,
     this.showThumbnail = false,
+    this.showFullscreenButton = false,
+    this.showCloseButton = false,
+    this.onFullscreenPressed,
+    this.onClosePressed,
   });
 
   @override
@@ -372,17 +380,50 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         return Column(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // Üst kontroller boş bırakıldı (sağ üstteki tam ekran butonu kaldırıldı)
+            // Üst kontroller - kapatma butonu ve tam ekran butonu
             Container(
               padding: EdgeInsets.all(isSmallScreen ? 8 : 16),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Burada daha önce tam ekran butonu vardı, kaldırıldı
+                  // Kapatma butonu (sol üst)
+                  if (widget.showCloseButton && widget.onClosePressed != null)
+                    GestureDetector(
+                      onTap: widget.onClosePressed,
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.6),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  // Tam ekran butonu (sağ üst)
+                  if (widget.showFullscreenButton && widget.onFullscreenPressed != null)
+                    GestureDetector(
+                      onTap: widget.onFullscreenPressed,
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.6),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.fullscreen,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
-        
+            
             // Orta kontroller (play/pause)
             Center(
               child: IconButton(

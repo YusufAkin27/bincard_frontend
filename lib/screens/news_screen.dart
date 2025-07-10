@@ -445,20 +445,7 @@ class _NewsScreenState extends State<NewsScreen>
                       overflow: TextOverflow.ellipsis,
                     ),
                     
-                    const SizedBox(height: 8),
-                    
-                    // Özet
-                    Text(
-                      news.summary ?? news.content,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppTheme.textSecondaryColor,
-                        height: 1.4,
-                      ),
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    
+                    // Özet kaldırıldı
                     const SizedBox(height: 16),
                     
                     // Alt butonlar
@@ -659,20 +646,7 @@ class _NewsScreenState extends State<NewsScreen>
                               fitToScreen: true,
                             ),
                           ),
-                          // Video altındaki açıklama
-                          if (news.summary != null && news.summary!.isNotEmpty)
-                            Container(
-                              padding: const EdgeInsets.all(16),
-                              width: double.infinity,
-                              color: Colors.black,
-                              child: Text(
-                                news.summary!,
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
+                          // Video altındaki açıklama kaldırıldı
                           // Alt butonlar
                           Container(
                             padding: const EdgeInsets.all(16),
@@ -1205,12 +1179,11 @@ class _NewsScreenState extends State<NewsScreen>
   }
 
   // Haberi paylaşma fonksiyonu
-  void _shareNews(UserNewsDTO news) {
-    // Paylaşım içeriğini hazırla
+  void _shareNews(UserNewsDTO news) {      // Paylaşım içeriğini hazırla
     String shareContent = """
 ${news.title}
 
-${news.summary ?? news.content}
+${news.content}
 """;
 
     // Uygulama deep link URL'i oluştur (news-detail sayfasına yönlendiren)
