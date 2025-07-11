@@ -21,6 +21,7 @@ import 'card_renewal_screen.dart';
 import '../services/secure_storage_service.dart';
 import '../services/user_service.dart';
 import '../services/news_service.dart';
+import '../services/api_service.dart';
 import '../models/user_model.dart';
 import '../models/news/user_news_dto.dart';
 import '../models/news/platform_type.dart';
@@ -95,7 +96,11 @@ class _HomeScreenState extends State<HomeScreen>
     });
     
     try {
-      final newsService = NewsService();
+      // ApiService oluştur ve token interceptor'ı ekle
+      final apiService = ApiService();
+      apiService.setupTokenInterceptor();
+      
+      final newsService = NewsService(apiService: apiService);
       final news = await newsService.getActiveNews(platform: PlatformType.MOBILE);
       
       setState(() {
@@ -150,7 +155,11 @@ class _HomeScreenState extends State<HomeScreen>
     });
     
     try {
-      final newsService = NewsService();
+      // ApiService oluştur ve token interceptor'ı ekle
+      final apiService = ApiService();
+      apiService.setupTokenInterceptor();
+      
+      final newsService = NewsService(apiService: apiService);
       //final userId = await (SecureStorageService().getUserId() ?? '');
       //final news = await newsService.getUserNews(userId: userId);
       final news = await newsService.getActiveNews(platform: PlatformType.MOBILE);
@@ -1717,7 +1726,10 @@ class _HomeScreenState extends State<HomeScreen>
 
   void _showNewsDetails(UserNewsDTO news) {
     // Haber görüntüleme kaydını tut
-    NewsService().recordNewsView(news.id);
+    final apiService = ApiService();
+    apiService.setupTokenInterceptor();
+    final newsService = NewsService(apiService: apiService);
+    newsService.recordNewsView(news.id);
     
     // Video içeren bir haber için, eğer thumbnail varsa, kullanıcıya seçenek sun
     if (news.videoUrl != null && news.videoUrl!.isNotEmpty && 

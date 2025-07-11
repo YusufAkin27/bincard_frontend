@@ -7,6 +7,7 @@ import '../models/news/news_type.dart';
 import '../models/news/news_priority.dart';
 import '../models/news/platform_type.dart';
 import '../services/news_service.dart';
+import '../services/api_service.dart';
 import '../widgets/video_player_widget.dart';
 import 'news_detail_screen.dart';
 import 'package:share_plus/share_plus.dart';
@@ -50,7 +51,10 @@ class _NewsScreenState extends State<NewsScreen>
     
     // Eğer video oynatılmaya başlandıysa, görüntülenme kaydı tut
     if (_videoPlayStates[news.id]!.isPlaying) {
-      NewsService().recordNewsView(news.id);
+      final apiService = ApiService();
+      apiService.setupTokenInterceptor();
+      final newsService = NewsService(apiService: apiService);
+      newsService.recordNewsView(news.id);
     }
   }
   
@@ -145,7 +149,11 @@ ${news.content}
         _isLoading = true;
       });
       
-      final newsService = NewsService();
+      // ApiService oluştur ve token interceptor'ı ekle
+      final apiService = ApiService();
+      apiService.setupTokenInterceptor();
+      
+      final newsService = NewsService(apiService: apiService);
       final news = await newsService.getActiveNews(platform: PlatformType.MOBILE);
       
       print('📰 API\'dan gelen haber sayısı: ${news.length}');
