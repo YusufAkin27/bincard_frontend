@@ -30,7 +30,17 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
     
     // Görüntülenme kaydı
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      NewsService().recordNewsView(widget.news.id);
+      final newsService = NewsService();
+      // API'ye görüntülenme kaydı gönder
+      newsService.recordNewsView(widget.news.id);
+      
+      // Yerel görüntülenme sayısını artır (UI için)
+      setState(() {
+        final updatedNews = newsService.incrementLocalViewCount(widget.news);
+        // This is a bit of a hack since widget.news is final
+        // In a real app, you'd use state management (Provider, Bloc, etc.)
+        (widget.news as dynamic).viewCount = updatedNews.viewCount;
+      });
     });
   }
 
@@ -76,9 +86,49 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
                     child: _buildCategoryTags(),
                   ),
                   
-                  // Sağ tarafta beğen ve paylaş butonları
+                  // Sağ tarafta görüntülenme, beğeni ve paylaş butonları
                   Row(
                     children: [
+                      // Görüntülenme sayısı
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.visibility_outlined,
+                            size: 16,
+                            color: Colors.grey,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            "${widget.news.viewCount}",
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 12),
+                      
+                      // Beğeni sayısı
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.favorite_outline,
+                            size: 16,
+                            color: Colors.grey,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            "${widget.news.likeCount}",
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 12),
+                      
                       // Beğen butonu
                       IconButton(
                         onPressed: () {

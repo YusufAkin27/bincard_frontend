@@ -1,5 +1,6 @@
 import 'news_priority.dart';
 import 'news_type.dart';
+import 'package:flutter/foundation.dart';
 
 class UserNewsDTO {
   final int id;
@@ -14,6 +15,8 @@ class UserNewsDTO {
   final NewsType type;
   final DateTime? createdAt;
   final String? summary;
+  final int viewCount;
+  final int likeCount;
 
   UserNewsDTO({
     required this.id,
@@ -28,12 +31,19 @@ class UserNewsDTO {
     required this.type,
     this.createdAt,
     this.summary,
+    this.viewCount = 0,
+    this.likeCount = 0,
   });
 
   factory UserNewsDTO.fromJson(Map<String, dynamic> json) {
     String? imageUrl;
     String? videoUrl;
     String? thumbnailUrl;
+    int viewCount = 0;
+    int likeCount = 0;
+    
+    // Debug logging
+    debugPrint('🔍 Parsing news item: ${json['id']} - ${json['title']}');
     
     // Image alanını kontrol et
     final imageField = json['image'];
@@ -77,6 +87,34 @@ class UserNewsDTO {
       thumbnailUrl = json['thumbnail'];
     }
     
+    // viewCount ve likeCount alanlarını kontrol et
+    if (json['viewCount'] != null) {
+      viewCount = json['viewCount'] is int ? json['viewCount'] : int.tryParse(json['viewCount'].toString()) ?? 0;
+    } else if (json['view_count'] != null) {
+      viewCount = json['view_count'] is int ? json['view_count'] : int.tryParse(json['view_count'].toString()) ?? 0;
+    }
+    
+    if (json['likeCount'] != null) {
+      likeCount = json['likeCount'] is int ? json['likeCount'] : int.tryParse(json['likeCount'].toString()) ?? 0;
+    } else if (json['like_count'] != null) {
+      likeCount = json['like_count'] is int ? json['like_count'] : int.tryParse(json['like_count'].toString()) ?? 0;
+    }
+    
+    // Debug için view count ve like count bilgilerini yazdır
+    debugPrint('📊 Haber ${json['id']} görüntülenme: $viewCount, beğeni: $likeCount');
+    
+    // datetime alanını kontrol et
+    DateTime? createdAt;
+    if (json['createdAt'] != null) {
+      createdAt = DateTime.tryParse(json['createdAt']);
+    } else if (json['date'] != null) {
+      createdAt = DateTime.tryParse(json['date']);
+    } else if (json['created_at'] != null) {
+      createdAt = DateTime.tryParse(json['created_at']);
+    } else {
+      createdAt = DateTime.now(); // Varsayılan tarih
+    }
+    
     return UserNewsDTO(
       id: json['id'],
       title: json['title'],
@@ -88,10 +126,10 @@ class UserNewsDTO {
       viewedByUser: json['viewedByUser'] ?? false,
       priority: NewsPriorityExtension.fromString(json['priority'] ?? 'NORMAL'),
       type: NewsTypeExtension.fromString(json['type'] ?? 'DUYURU'),
-      createdAt: json['createdAt'] != null 
-          ? DateTime.tryParse(json['createdAt']) 
-          : null,
+      createdAt: createdAt,
       summary: json['summary'],
+      viewCount: viewCount,
+      likeCount: likeCount,
     );
   }
   
@@ -167,6 +205,10 @@ class UserNewsDTO {
       'viewedByUser': viewedByUser,
       'priority': priority.toString().split('.').last,
       'type': type.toString().split('.').last,
+      'createdAt': createdAt?.toIso8601String(),
+      'summary': summary,
+      'viewCount': viewCount,
+      'likeCount': likeCount,
     };
   }
 }

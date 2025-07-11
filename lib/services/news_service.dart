@@ -42,18 +42,30 @@ class NewsService {
         final responseData = response.data;
         debugPrint('🔍 NewsService API Response: $responseData');
         
-        if (responseData['success'] == true && responseData['data'] != null) {
+        // Direkt liste olarak geliyor mu kontrol et
+        if (responseData is List) {
+          debugPrint('🔍 NewsService: ${responseData.length} haber bulundu (doğrudan liste)');
+          return responseData.map((item) => UserNewsDTO.fromJson(item)).toList();
+        } 
+        // Obje içinde data array'i olarak geliyor mu kontrol et
+        else if (responseData is Map && responseData['data'] != null && responseData['data'] is List) {
           final List<dynamic> newsItems = responseData['data'];
-          debugPrint('🔍 NewsService: ${newsItems.length} haber bulundu');
-          
-          // Her haberin içeriğini logla
-          for (var item in newsItems) {
+          debugPrint('🔍 NewsService: ${newsItems.length} haber bulundu (data içinde)');
+          return newsItems.map((item) => UserNewsDTO.fromJson(item)).toList();
+        }
+        // Sadece array olarak geliyor mu kontrol et
+        else if (responseData is Map && responseData['success'] == true && responseData['data'] != null) {
+          final List<dynamic> newsItems = responseData['data'];
+          debugPrint('🔍 NewsService: ${newsItems.length} haber bulundu (success içinde)');
+          return newsItems.map((item) => UserNewsDTO.fromJson(item)).toList();
+        }
+        
+        // Her durumda haberleri logla
+        if (responseData is List) {
+          for (var item in responseData) {
             debugPrint('🔍 Haber JSON: $item');
             debugPrint('🔍 Haber başlık: ${item['title']}');
-            debugPrint('🔍 Video alanları: videoUrl=${item['videoUrl']}, video_url=${item['video_url']}, video=${item['video']}, media=${item['media']}');
           }
-          
-          return newsItems.map((item) => UserNewsDTO.fromJson(item)).toList();
         }
       }
       
@@ -149,6 +161,27 @@ class NewsService {
       return false;
     }
   }
+  
+  // Increment view count locally (to avoid waiting for server refresh)
+  UserNewsDTO incrementLocalViewCount(UserNewsDTO news) {
+    // This is a helper method to update the UI instantly while the server processes the view
+    return UserNewsDTO(
+      id: news.id,
+      title: news.title,
+      content: news.content,
+      image: news.image,
+      videoUrl: news.videoUrl,
+      thumbnailUrl: news.thumbnailUrl,
+      likedByUser: news.likedByUser,
+      viewedByUser: true, // Mark as viewed
+      priority: news.priority,
+      type: news.type,
+      createdAt: news.createdAt,
+      summary: news.summary,
+      viewCount: news.viewCount + 1, // Increment the view count
+      likeCount: news.likeCount,
+    );
+  }
 
   // Get suggested news
   Future<List<UserNewsDTO>> getSuggestedNews({PlatformType? platform}) async {
@@ -237,77 +270,10 @@ class NewsService {
       return null;
     } on DioException catch (e) {
       debugPrint('ID\'ye göre haber getirme hatası: ${e.message}');
-      // Demo haber oluştur (API çalışmadığında test için)
-      return _createDemoNewsById(newsId);
+      return null;
     } catch (e) {
       debugPrint('ID\'ye göre haber getirme genel hatası: $e');
-      // Demo haber oluştur (API çalışmadığında test için)
-      return _createDemoNewsById(newsId);
-    }
-  }
-  
-  // Demo haber oluştur (API çalışmadığında test için)
-  UserNewsDTO? _createDemoNewsById(int newsId) {
-    // Geliştirme/test ortamı için örnek haberler
-    final demoNewsList = _getDemoNewsWithVideo();
-    
-    // ID'ye göre haber bul
-    try {
-      return demoNewsList.firstWhere((news) => news.id == newsId);
-    } catch (e) {
-      // Belirtilen ID'de haber bulunamazsa, demo liste içinden rastgele bir haber döndür
-      if (demoNewsList.isNotEmpty) {
-        return demoNewsList.first;
-      }
       return null;
     }
-  }
-  
-  // Demo haberler listesi (video içeren) oluştur
-  List<UserNewsDTO> _getDemoNewsWithVideo() {
-    return [
-      UserNewsDTO(
-        id: 1,
-        title: 'Demo Video Haber 1',
-        content: 'Bu bir test video haberidir. Video içeriği test amaçlıdır.',
-        image: 'https://res.cloudinary.com/demo/video/upload/v1688883315/samples/elephants.mp4',
-        videoUrl: 'https://res.cloudinary.com/demo/video/upload/v1688883315/samples/elephants.mp4',
-        thumbnailUrl: 'https://res.cloudinary.com/demo/image/upload/v1688883315/samples/elephants.jpg',
-        likedByUser: false,
-        viewedByUser: false,
-        priority: NewsPriorityExtension.fromString('NORMAL'),
-        type: NewsTypeExtension.fromString('DUYURU'),
-        createdAt: DateTime.now(),
-        summary: 'Video haber özeti',
-      ),
-      UserNewsDTO(
-        id: 2,
-        title: 'Demo Video Haber 2',
-        content: 'Bu bir başka test video haberidir. Video içeriği test amaçlıdır.',
-        image: 'https://res.cloudinary.com/demo/video/upload/v1688883315/samples/sea-turtle.mp4',
-        videoUrl: 'https://res.cloudinary.com/demo/video/upload/v1688883315/samples/sea-turtle.mp4',
-        thumbnailUrl: 'https://res.cloudinary.com/demo/image/upload/v1688883315/samples/sea-turtle.jpg',
-        likedByUser: false,
-        viewedByUser: false,
-        priority: NewsPriorityExtension.fromString('NORMAL'),
-        type: NewsTypeExtension.fromString('KAMPANYA'),
-        createdAt: DateTime.now(),
-        summary: 'Video haber özeti',
-      ),
-      UserNewsDTO(
-        id: 3,
-        title: 'Demo Görsel Haber',
-        content: 'Bu bir test resim haberidir. Resim içeriği test amaçlıdır.',
-        image: 'https://res.cloudinary.com/demo/image/upload/v1688883315/samples/landscapes/beach-boat.jpg',
-        videoUrl: null,
-        thumbnailUrl: null,
-        likedByUser: false,
-        viewedByUser: false,
-        priority: NewsPriorityExtension.fromString('NORMAL'),
-        type: NewsTypeExtension.fromString('BILGILENDIRME'),
-        createdAt: DateTime.now(),
-        summary: 'Resim haber özeti',
-      ),
-    ];
   }
 }

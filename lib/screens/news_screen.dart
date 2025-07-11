@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../theme/app_theme.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../models/news/user_news_dto.dart';
@@ -9,6 +10,7 @@ import '../services/news_service.dart';
 import '../widgets/video_player_widget.dart';
 import 'news_detail_screen.dart';
 import 'package:share_plus/share_plus.dart';
+import 'dart:math';
 
 // Video oynatma durumunu takip eden sınıf
 class VideoPlayState {
@@ -33,6 +35,62 @@ class _NewsScreenState extends State<NewsScreen>
   
   // Video oynatma durumunu takip etmek için map
   Map<int, VideoPlayState> _videoPlayStates = {};
+  
+  // Video oynatma durumunu değiştiren fonksiyon
+  void _toggleVideoPlay(UserNewsDTO news) {
+    setState(() {
+      if (_videoPlayStates.containsKey(news.id)) {
+        // Mevcut durumu tersine çevir
+        _videoPlayStates[news.id]!.isPlaying = !_videoPlayStates[news.id]!.isPlaying;
+      } else {
+        // Yeni oynatma durumu oluştur
+        _videoPlayStates[news.id] = VideoPlayState(newsId: news.id.toString(), isPlaying: true);
+      }
+    });
+    
+    // Eğer video oynatılmaya başlandıysa, görüntülenme kaydı tut
+    if (_videoPlayStates[news.id]!.isPlaying) {
+      NewsService().recordNewsView(news.id);
+    }
+  }
+  
+  // Video oynatma durumunu kontrol eden getter
+  bool isVideoPlaying(int newsId) {
+    return _videoPlayStates.containsKey(newsId) && _videoPlayStates[newsId]!.isPlaying;
+  }
+  
+  // Haberi paylaşma fonksiyonu
+  void _shareNews(UserNewsDTO news) {
+    // Paylaşım içeriğini hazırla
+    String shareContent = """
+${news.title}
+
+${news.content}
+""";
+
+    // Uygulama deep link URL'i oluştur
+    final String appDeepLink = "bincard://news-detail?id=${news.id}";
+    
+    // Deep link bilgisini ekle
+    shareContent += "\n\nHaberi uygulamada görüntülemek için tıklayın: $appDeepLink";
+    
+    // Alternatif olarak web sayfası linki
+    final String webUrl = "https://bincard.com/news/${news.id}";
+    shareContent += "\nveya web sitesinde görüntüleyin: $webUrl";
+    
+    // Uygulama bilgisi ekle
+    shareContent += "\n\nBincard uygulamasından paylaşıldı.";
+    
+    // Paylaşım seçeneklerini göster
+    Share.share(
+      shareContent,
+      subject: news.title,
+    ).then((result) {
+      print('📤 Haber paylaşıldı: ${news.title}');
+    }).catchError((error) {
+      print('❌ Paylaşım hatası: $error');
+    });
+  }
   
   // Filtrelenmiş haber listeleri için getter'lar
   List<UserNewsDTO> get _importantNews => _allNews
@@ -73,7 +131,7 @@ class _NewsScreenState extends State<NewsScreen>
     try {
       await _loadNews();
     } catch (e) {
-      debugPrint('Haberleri yenileme hatası: $e');
+      print('Haberleri yenileme hatası: $e');
     } finally {
       setState(() {
         _isLoading = false;
@@ -90,36 +148,32 @@ class _NewsScreenState extends State<NewsScreen>
       final newsService = NewsService();
       final news = await newsService.getActiveNews(platform: PlatformType.MOBILE);
       
-      debugPrint('📰 API\'dan gelen haber sayısı: ${news.length}');
+      print('📰 API\'dan gelen haber sayısı: ${news.length}');
       for (var newsItem in news) {
-        debugPrint('📰 Haber: ${newsItem.title} - Video: ${newsItem.videoUrl}');
+        print('📰 Haber: ${newsItem.title} - ID: ${newsItem.id}');
       }
       
-      // API'dan veri gelmediyse demo veri ekle
-      if (news.isEmpty) {
-        debugPrint('📰 API\'dan veri gelmedi, demo data kullanılıyor');
-        final demoNews = _getDemoNewsWithVideo();
-        debugPrint('📰 Demo haber sayısı: ${demoNews.length}');
-        setState(() {
-          _allNews = demoNews;
-          _isLoading = false;
-        });
-      } else {
-        debugPrint('📰 API\'dan gelen veriler kullanılıyor');
-        setState(() {
-          _allNews = news;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      debugPrint('❌ Haberler yüklenirken hata: $e');
-      // Hata durumunda demo veri göster
-      debugPrint('📰 Hata nedeniyle demo data kullanılıyor');
-      final demoNews = _getDemoNewsWithVideo();
       setState(() {
-        _allNews = demoNews;
+        _allNews = news;
         _isLoading = false;
       });
+      
+    } catch (e) {
+      print('❌ Haberler yüklenirken hata: $e');
+      
+      // Hata durumunda boş liste göster
+      setState(() {
+        _allNews = [];
+        _isLoading = false;
+      });
+      
+      // Kullanıcıya hata bildirimi göster
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Haberler yüklenirken bir sorun oluştu. Lütfen internet bağlantınızı kontrol edin.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
@@ -322,6 +376,7 @@ class _NewsScreenState extends State<NewsScreen>
           borderRadius: BorderRadius.circular(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min, // Prevent unnecessary expansion
             children: [
               // Medya kısmı
               Stack(
@@ -333,6 +388,7 @@ class _NewsScreenState extends State<NewsScreen>
                     child: Container(
                       width: double.infinity,
                       color: AppTheme.primaryColor.withOpacity(0.1),
+                      constraints: const BoxConstraints(maxHeight: 200), // Limit max height
                       child: _buildNewsMedia(news),
                     ),
                   ),
@@ -381,9 +437,10 @@ class _NewsScreenState extends State<NewsScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Kategori ve Tarih
+                    // Kategori, Görüntülenme sayısı ve Tarih
                     Row(
                       children: [
+                        // Kategori
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 10,
@@ -414,6 +471,28 @@ class _NewsScreenState extends State<NewsScreen>
                           ),
                         ),
                         const Spacer(),
+                        // Görüntülenme sayısı
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.visibility_outlined,
+                              size: 14,
+                              color: AppTheme.textSecondaryColor.withOpacity(0.7),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              "${news.viewCount}",
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textSecondaryColor.withOpacity(0.7),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(width: 8),
+                        // Tarih
                         Icon(
                           Icons.access_time_rounded,
                           size: 14,
@@ -448,60 +527,77 @@ class _NewsScreenState extends State<NewsScreen>
                     // Özet kaldırıldı
                     const SizedBox(height: 16),
                     
-                    // Alt butonlar
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            icon: const Icon(Icons.remove_red_eye, size: 18),
-                            label: const Text('Detaylar'),
-                            onPressed: () => _showNewsDetails(news),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.primaryColor,
-                              side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.5)),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                    // Alt butonlar - Wrap in SingleChildScrollView to prevent overflow
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          // Detaylar butonu - Esnek genişlik
+                          ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: MediaQuery.of(context).size.width * 0.5,
+                            ),
+                            child: OutlinedButton.icon(
+                              icon: const Icon(Icons.remove_red_eye, size: 18),
+                              label: const Text('Detaylar'),
+                              onPressed: () => _showNewsDetails(news),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.primaryColor,
+                                side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.5)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: const Icon(Icons.share_rounded),
-                          onPressed: () => _shareNews(news),
-                          style: IconButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              side: BorderSide(
-                                color: AppTheme.dividerColor,
+                          const SizedBox(width: 8),
+                          // İkon butonlar - Sabit boyut
+                          SizedBox(
+                            width: 40,
+                            height: 40,
+                            child: IconButton(
+                              icon: const Icon(Icons.share_rounded, size: 20),
+                              onPressed: () => _shareNews(news),
+                              style: IconButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  side: BorderSide(
+                                    color: AppTheme.dividerColor,
+                                  ),
+                                ),
+                                padding: EdgeInsets.zero,
                               ),
                             ),
-                            padding: const EdgeInsets.all(12),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: const Icon(Icons.favorite_border_rounded),
-                          onPressed: () {
-                            // Beğenme işlemi - gelecekte eklenecek
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Beğenme özelliği yakında eklenecek'),
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          },
-                          style: IconButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              side: BorderSide(
-                                color: AppTheme.dividerColor,
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 40,
+                            height: 40,
+                            child: IconButton(
+                              icon: const Icon(Icons.favorite_border_rounded, size: 20),
+                              onPressed: () {
+                                // Beğenme işlemi - gelecekte eklenecek
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Beğenme özelliği yakında eklenecek'),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              },
+                              style: IconButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  side: BorderSide(
+                                    color: AppTheme.dividerColor,
+                                  ),
+                                ),
+                                padding: EdgeInsets.zero,
                               ),
                             ),
-                            padding: const EdgeInsets.all(12),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -513,15 +609,18 @@ class _NewsScreenState extends State<NewsScreen>
     );
   }
 
-  void _showNewsDetails(UserNewsDTO news) {
-    // Haber görüntüleme kaydını tut
-    NewsService().recordNewsView(news.id);
-    
-    // Direkt olarak haber detay sayfasına git
-    Navigator.push(
+  // Haber detayı gösterme fonksiyonu
+  void _showNewsDetails(UserNewsDTO news) async {
+    // Detay sayfasına git
+    await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => NewsDetailScreen(news: news)),
+      MaterialPageRoute(
+        builder: (context) => NewsDetailScreen(news: news),
+      ),
     );
+    
+    // Sayfadan dönüş sonrası haberleri yenile
+    _refreshNews();
   }
   
   void _playVideo(UserNewsDTO news) {
@@ -831,413 +930,257 @@ class _NewsScreenState extends State<NewsScreen>
 
   Widget _buildNewsMedia(UserNewsDTO news) {
     // Debug: Video URL'sini konsola yazdır
-    debugPrint('📹 News ID: ${news.id}, Title: ${news.title}');
-    debugPrint('📹 Video URL: ${news.videoUrl}');
-    debugPrint('📹 Image URL: ${news.image}');
-    debugPrint('📹 Thumbnail URL: ${news.thumbnailUrl}');
+    print('📹 News ID: ${news.id}, Title: ${news.title}');
+    print('📹 Video URL: ${news.videoUrl}');
+    print('📹 Image URL: ${news.image}');
+    print('📹 Thumbnail URL: ${news.thumbnailUrl}');
     
     // Video varsa thumbnail veya video player göster
     if (news.videoUrl != null && news.videoUrl!.isNotEmpty) {
       // Thumbnail varsa göster, yoksa video player göster
       if (news.thumbnailUrl != null && news.thumbnailUrl!.isNotEmpty) {
-        debugPrint('🖼️ Video thumbnail gösteriliyor: ${news.videoUrl}');
-        
+        print('🖼️ Video thumbnail gösteriliyor: ${news.videoUrl}');
         // Eğer bu video oynatılıyorsa video player göster
         if (isVideoPlaying(news.id)) {
           // Video player göster
-          return AspectRatio(
-            aspectRatio: 16 / 9,
-            child: Container(
-              decoration: const BoxDecoration(
-                color: Colors.black,
-                borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(16),
+          return LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints constraints) {
+              return Container(
+                decoration: const BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(16),
+                  ),
                 ),
-              ),
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(16),
-                ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    VideoPlayerWidget(
-                      videoUrl: news.videoUrl!,
-                      autoPlay: true,
-                      looping: false,
-                      showControls: true,
-                      fitToScreen: true,
-                    ),
-                    
-                    // Kapatma butonu - sağ üstte
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: GestureDetector(
-                        onTap: () => _toggleVideoPlay(news),
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.6),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.close,
-                            color: Colors.white,
-                            size: 20,
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(16),
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      VideoPlayerWidget(
+                        videoUrl: news.videoUrl!,
+                        autoPlay: true,
+                        looping: false,
+                        showControls: true,
+                        fitToScreen: true,
+                      ),
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: GestureDetector(
+                          onTap: () => _toggleVideoPlay(news),
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.6),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.close,
+                              color: Colors.white,
+                              size: 20,
+                            ),
                           ),
                         ),
                       ),
+                      Positioned(
+                        bottom: 8,
+                        right: 8,
+                        child: GestureDetector(
+                          onTap: () => _showVideoPreview(news),
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.6),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.fullscreen,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        }
+        // Değilse thumbnail göster
+        return GestureDetector(
+          onTap: () => _toggleVideoPlay(news),
+          child: LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints constraints) {
+              final double height = min(constraints.maxWidth * 9/16, 200);
+              return SizedBox(
+                height: height,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.network(
+                      news.thumbnailUrl!,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                      errorBuilder: (context, error, stackTrace) {
+                        print('❌ Thumbnail yükleme hatası: $error');
+                        return Container(
+                          color: Colors.grey[200],
+                          child: const Center(
+                            child: Icon(Icons.movie, size: 60, color: Colors.grey),
+                          ),
+                        );
+                      },
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          color: Colors.grey[100],
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                    
-                    // Büyütme butonu - sağ altta
-                    Positioned(
-                      bottom: 8,
-                      right: 8,
-                      child: GestureDetector(
-                        onTap: () => _showVideoPreview(news),
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.6),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.fullscreen,
-                            color: Colors.white,
-                            size: 20,
-                          ),
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withOpacity(0.3),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withOpacity(0.9),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.play_arrow_rounded,
+                          color: Colors.white,
+                          size: 36,
                         ),
                       ),
                     ),
                   ],
                 ),
-              ),
-            ),
-          );
-        } 
-        
-        // Değilse thumbnail göster
-        return GestureDetector(
-          onTap: () => _toggleVideoPlay(news),
-          child: AspectRatio(
-            aspectRatio: 16 / 9,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                // Thumbnail göster
-                Image.network(
-                  news.thumbnailUrl!,
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                  height: double.infinity,
-                  errorBuilder: (context, error, stackTrace) {
-                    debugPrint('❌ Thumbnail yükleme hatası: $error');
-                    return Container(
-                      color: Colors.grey[200],
-                      child: const Center(
-                        child: Icon(Icons.movie, size: 60, color: Colors.grey),
-                      ),
-                    );
-                  },
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(
-                      color: Colors.grey[100],
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          value: loadingProgress.expectedTotalBytes != null
-                              ? loadingProgress.cumulativeBytesLoaded /
-                                  loadingProgress.expectedTotalBytes!
-                              : null,
-                          color: AppTheme.primaryColor,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                // Gradient overlay
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withOpacity(0.3),
-                      ],
-                    ),
-                  ),
-                ),
-                // Video play butonu overlay
-                Center(
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.9),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.play_arrow_rounded,
-                      color: Colors.white,
-                      size: 36,
-                    ),
-                  ),
-                ),
-                // Video etiketi kaldırıldı
-              ],
-            ),
+              );
+            },
           ),
         );
       } else {
         // Thumbnail yoksa video player göster
-        debugPrint('📹 Video player gösteriliyor: ${news.videoUrl}');
-        return ClipRRect(
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(16),
-          ),
-          child: AspectRatio(
-            aspectRatio: 16 / 9,
-            child: VideoPlayerWidget(
-              videoUrl: news.videoUrl!,
-              autoPlay: false,
-              looping: false,
-              showControls: true,
-              fitToScreen: true,
-            ),
-          ),
+        print('📹 Video player gösteriliyor: ${news.videoUrl}');
+        return LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+            final double height = min(constraints.maxWidth * 9/16, 200);
+            return ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
+              child: SizedBox(
+                height: height,
+                child: VideoPlayerWidget(
+                  videoUrl: news.videoUrl!,
+                  autoPlay: false,
+                  looping: false,
+                  showControls: true,
+                  fitToScreen: true,
+                ),
+              ),
+            );
+          },
         );
       }
     }
-    
     // Video yoksa resim göster
     if (news.image != null && news.image!.isNotEmpty) {
-      debugPrint('📷 Resim gösteriliyor: ${news.image}');
-      return AspectRatio(
-        aspectRatio: 16 / 9,
-        child: Image.network(
-          news.image!,
-          fit: BoxFit.cover,
-          width: double.infinity,
-          height: double.infinity,
-          errorBuilder: (context, error, stackTrace) {
-            debugPrint('❌ Resim yükleme hatası: $error');
-            return Center(
-              child: Icon(
-                _getCategoryIcon(news.type),
-                size: 60,
-                color: AppTheme.primaryColor.withOpacity(0.5),
-              ),
-            );
-          },
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return Container(
-              color: Colors.grey[100],
-              child: Center(
-                child: CircularProgressIndicator(
-                  value: loadingProgress.expectedTotalBytes != null
-                      ? loadingProgress.cumulativeBytesLoaded /
-                          loadingProgress.expectedTotalBytes!
-                      : null,
-                  color: AppTheme.primaryColor,
-                ),
-              ),
-            );
-          },
-        ),
+      print('📷 Resim gösteriliyor: ${news.image}');
+      return LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          final double height = min(constraints.maxWidth * 9/16, 200);
+          return SizedBox(
+            height: height,
+            child: Image.network(
+              news.image!,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
+              errorBuilder: (context, error, stackTrace) {
+                print('❌ Resim yükleme hatası: $error');
+                return Center(
+                  child: Icon(
+                    _getCategoryIcon(news.type),
+                    size: 60,
+                    color: AppTheme.primaryColor.withOpacity(0.5),
+                  ),
+                );
+              },
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Container(
+                  color: Colors.grey[100],
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      value: loadingProgress.expectedTotalBytes != null
+                          ? loadingProgress.cumulativeBytesLoaded /
+                              loadingProgress.expectedTotalBytes!
+                          : null,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                );
+              },
+            ),
+          );
+        },
       );
     }
-    
     // Ne video ne de resim varsa ikon göster
-    debugPrint('🎯 Ne video ne resim var, ikon gösteriliyor');
-    return AspectRatio(
-      aspectRatio: 16 / 9,
-      child: Container(
-        color: AppTheme.backgroundColor,
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                _getCategoryIcon(news.type),
-                size: 64,
-                color: AppTheme.primaryColor.withOpacity(0.3),
+    print('🎯 Ne video ne resim var, ikon gösteriliyor');
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final double height = min(constraints.maxWidth * 9/16, 200);
+        return SizedBox(
+          height: height,
+          child: Container(
+            color: AppTheme.backgroundColor,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    _getCategoryIcon(news.type),
+                    size: 64,
+                    color: AppTheme.primaryColor.withOpacity(0.3),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _getCategoryName(news.type),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppTheme.textSecondaryColor.withOpacity(0.7),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                _getCategoryName(news.type),
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppTheme.textSecondaryColor.withOpacity(0.7),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
-  }
-
-  List<UserNewsDTO> _getDemoNewsWithVideo() {
-    return [
-      // Kullanıcının eklediği "deneme haber" video haberi
-      UserNewsDTO(
-        id: 0,
-        title: 'deneme haber',
-        content: 'video deneme',
-        image: null,
-        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-        thumbnailUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
-        likedByUser: false,
-        viewedByUser: false,
-        priority: NewsPriority.YUKSEK,
-        type: NewsType.DUYURU,
-        createdAt: DateTime.now(),
-        summary: 'Video deneme haberi',
-      ),
-      
-      // Video içeren haber
-      UserNewsDTO(
-        id: 1,
-        title: 'Şehir Kartı Tanıtım Videosu',
-        content: 'Şehir kartınızı nasıl kullanacağınızı anlatan detaylı video rehberimizi izleyebilirsiniz. Bu videoda kart yükleme, otobüs kullanımı ve mobil uygulamanın tüm özelliklerini öğreneceksiniz.',
-        image: null,
-        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-        thumbnailUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/ElephantsDream.jpg',
-        likedByUser: false,
-        viewedByUser: false,
-        priority: NewsPriority.YUKSEK,
-        type: NewsType.DUYURU,
-        createdAt: DateTime.now().subtract(const Duration(hours: 2)),
-        summary: 'Şehir kartı kullanım rehberi videosu',
-      ),
-      
-      // Resim içeren haber
-      UserNewsDTO(
-        id: 2,
-        title: 'Yeni Otobüs Hatları Açıldı',
-        content: 'Şehrimizde toplu taşıma ağını genişletmek amacıyla 5 yeni otobüs hattı hizmete açılmıştır. Bu hatlar ile daha fazla mahallimize ulaşım sağlanacaktır.',
-        image: 'https://picsum.photos/400/200?random=1',
-        videoUrl: null,
-        likedByUser: true,
-        viewedByUser: true,
-        priority: NewsPriority.NORMAL,
-        type: NewsType.DUYURU,
-        createdAt: DateTime.now().subtract(const Duration(days: 1)),
-        summary: 'Yeni otobüs hatları',
-      ),
-      
-      // Video içeren kampanya haberi
-      UserNewsDTO(
-        id: 3,
-        title: 'Yaz Kampanyası Tanıtımı',
-        content: 'Bu yaz için özel kampanyamızı tanıtan video içeriğimizi izleyerek avantajlardan yararlanabilirsiniz. Kampanya detayları ve nasıl katılacağınız videoda anlatılıyor.',
-        image: null,
-        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
-        thumbnailUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerFun.jpg',
-        likedByUser: false,
-        viewedByUser: false,
-        priority: NewsPriority.YUKSEK,
-        type: NewsType.KAMPANYA,
-        createdAt: DateTime.now().subtract(const Duration(hours: 5)),
-        summary: 'Yaz kampanyası video tanıtımı',
-      ),
-      
-      // Sadece metin içeren haber
-      UserNewsDTO(
-        id: 4,
-        title: 'Sistem Bakım Duyurusu',
-        content: 'Sistem altyapısını iyileştirmek amacıyla 15 Temmuz 2025 tarihi saat 02:00-06:00 arasında planlı bakım yapılacaktır. Bu süreçte kart yükleme işlemleri etkilenebilir.',
-        image: null,
-        videoUrl: null,
-        likedByUser: false,
-        viewedByUser: true,
-        priority: NewsPriority.KRITIK,
-        type: NewsType.DUYURU,
-        createdAt: DateTime.now().subtract(const Duration(hours: 12)),
-        summary: 'Planlı sistem bakımı',
-      ),
-      
-      // Video ve resim içeren karma haber
-      UserNewsDTO(
-        id: 5,
-        title: 'Etkinlik Tanıtımı - Video İçerik',
-        content: 'Şehrimizde düzenlenecek olan büyük etkinliğin tanıtım videosunu izleyerek detaylı bilgi alabilirsiniz. Etkinlik programı, katılım koşulları ve ödüller hakkında her şey videoda!',
-        image: 'https://picsum.photos/400/200?random=2',
-        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-        thumbnailUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerBlazes.jpg',
-        likedByUser: true,
-        viewedByUser: false,
-        priority: NewsPriority.NORMAL,
-        type: NewsType.ETKINLIK,
-        createdAt: DateTime.now().subtract(const Duration(days: 2)),
-        summary: 'Etkinlik tanıtım videosu',
-      ),
-    ];
-  }
-
-  // Haberi paylaşma fonksiyonu
-  void _shareNews(UserNewsDTO news) {      // Paylaşım içeriğini hazırla
-    String shareContent = """
-${news.title}
-
-${news.content}
-""";
-
-    // Uygulama deep link URL'i oluştur (news-detail sayfasına yönlendiren)
-    final String appDeepLink = "bincard://news-detail?id=${news.id}";
-
-    // Deep link bilgisini ekle
-    shareContent += "\n\nHaberi uygulamada görüntülemek için tıklayın: $appDeepLink";
-
-    // Alternatif olarak web sayfası linki (Web uygulaması varsa)
-    final String webUrl = "https://bincard.com/news/${news.id}";
-    shareContent += "\nveya web sitesinde görüntüleyin: $webUrl";
-
-    // Uygulama bilgisi ekle
-    shareContent += "\n\nBincard uygulamasından paylaşıldı.";
-
-    // Paylaşım seçeneklerini göster
-    Share.share(
-      shareContent,
-      subject: news.title,
-    ).then((result) {
-      // Paylaşım tamamlandığında analytics veya diğer işlemler için
-      debugPrint('📤 Haber paylaşıldı: ${news.title}');
-    }).catchError((error) {
-      debugPrint('❌ Paylaşım hatası: $error');
-      // Hata durumunda kullanıcıya bilgi ver
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Paylaşım sırasında bir hata oluştu.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    });
-  }
-
-  // Video oynatma durumunu değiştiren fonksiyon
-  void _toggleVideoPlay(UserNewsDTO news) {
-    setState(() {
-      if (_videoPlayStates.containsKey(news.id)) {
-        // Mevcut durumu tersine çevir
-        _videoPlayStates[news.id]!.isPlaying = !_videoPlayStates[news.id]!.isPlaying;
-      } else {
-        // Yeni oynatma durumu oluştur
-        _videoPlayStates[news.id] = VideoPlayState(newsId: news.id.toString(), isPlaying: true);
-      }
-    });
-    
-    // Eğer video oynatılmaya başlandıysa, görüntülenme kaydı tut
-    if (_videoPlayStates[news.id]!.isPlaying) {
-      NewsService().recordNewsView(news.id);
-    }
-  }
-  
-  // Video oynatma durumunu kontrol eden getter
-  bool isVideoPlaying(int newsId) {
-    return _videoPlayStates.containsKey(newsId) && _videoPlayStates[newsId]!.isPlaying;
   }
 }

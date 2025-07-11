@@ -1,6 +1,6 @@
 class ApiConstants {
   // Base URL for API requests
-  // Mevcut API URL'sini kullanıyoruz
+  // Updated API URL
   static const String baseUrl = 'http://192.168.174.214:8080/v1/api';
   
   // Ortam değişkenleri
