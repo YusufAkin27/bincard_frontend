@@ -1380,7 +1380,7 @@ class _HomeScreenState extends State<HomeScreen>
               : _newsList.isEmpty
                   ? _buildEmptyNewsWidget()
                   : SizedBox(
-                      height: 230,
+                      height: 250,
                       child: ListView.builder(
                         scrollDirection: Axis.horizontal,
                         itemCount: _newsList.length,
@@ -1398,7 +1398,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   Widget _buildNewsLoadingIndicator() {
     return Container(
-      height: 230,
+      height: 250,
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1422,7 +1422,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   Widget _buildEmptyNewsWidget() {
     return Container(
-      height: 230,
+      height: 250,
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1503,7 +1503,7 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1516,12 +1516,12 @@ class _HomeScreenState extends State<HomeScreen>
                           ),
                           decoration: BoxDecoration(
                             color: _getCategoryColor(news.type).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             _getCategoryName(news.type),
                             style: TextStyle(
-                              fontSize: 10,
+                              fontSize: 11,
                               fontWeight: FontWeight.w600,
                               color: _getCategoryColor(news.type),
                             ),
@@ -1536,14 +1536,14 @@ class _HomeScreenState extends State<HomeScreen>
                             ),
                             decoration: BoxDecoration(
                               color: AppTheme.accentColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(6),
                             ),
                             child: Row(
                               children: [
                                 Icon(
                                   Icons.star,
                                   color: AppTheme.accentColor,
-                                  size: 10,
+                                  size: 11,
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
@@ -1567,8 +1567,9 @@ class _HomeScreenState extends State<HomeScreen>
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.textPrimaryColor,
+                        height: 1.3,
                       ),
-                      maxLines: 2,
+                      maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
