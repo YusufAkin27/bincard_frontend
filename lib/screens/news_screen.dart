@@ -127,6 +127,12 @@ ${news.content}
       .where((news) => news.type == NewsType.KAMPANYA || news.type == NewsType.ETKINLIK)
       .toList();
 
+  // Pagination için değişkenler
+  int _currentPage = 0;
+  int _totalPages = 0;
+  bool _hasMoreNews = true;
+  final ScrollController _newsScrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
@@ -137,21 +143,35 @@ ${news.content}
     
     // Haberleri yükle
     _loadNews();
+    _newsScrollController.addListener(_onNewsScroll);
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _newsScrollController.dispose();
     super.dispose();
+  }
+
+  // Scroll ile aşağı inince yeni sayfa yükle
+  void _onNewsScroll() {
+    if (_newsScrollController.position.pixels >= _newsScrollController.position.maxScrollExtent - 100) {
+      if (!_isLoading && _hasMoreNews) {
+        _loadNews();
+      }
+    }
   }
 
   Future<void> _refreshNews() async {
     setState(() {
       _isLoading = true;
+      _currentPage = 0;
+      _allNews = [];
+      _hasMoreNews = true;
     });
 
     try {
-      await _loadNews();
+      await _loadNews(refresh: true);
     } catch (e) {
       print('Haberleri yenileme hatası: $e');
     } finally {
@@ -161,45 +181,44 @@ ${news.content}
     }
   }
   
-  Future<void> _loadNews() async {
-    try {
+  Future<void> _loadNews({bool refresh = false}) async {
+    if (_isLoading) return;
+    if (refresh) {
       setState(() {
-        _isLoading = true;
+        _currentPage = 0;
+        _allNews = [];
+        _hasMoreNews = true;
       });
-      
-      // ApiService oluştur ve token interceptor'ı ekle
+    }
+    if (!_hasMoreNews && !refresh) return;
+    setState(() {
+      _isLoading = true;
+    });
+    try {
       final apiService = ApiService();
       apiService.setupTokenInterceptor();
-      
       final newsService = NewsService(apiService: apiService);
-      final news = await newsService.getActiveNews(platform: PlatformType.MOBILE);
-      
-      print('📰 API\'dan gelen haber sayısı: ${news.content.length}');
-      for (var newsItem in news.content) {
-        print('📰 Haber: ${newsItem.title} - ID: ${newsItem.id}');
-      }
-      
+      final newsPage = await newsService.getActiveNews(
+        platform: PlatformType.MOBILE,
+        page: _currentPage,
+        size: 2,
+      );
       setState(() {
-        _allNews = news.content;
+        if (refresh) {
+          _allNews = newsPage.content;
+        } else {
+          _allNews = [..._allNews, ...newsPage.content];
+        }
+        _currentPage = newsPage.pageNumber + 1;
+        _totalPages = newsPage.totalPages;
+        _hasMoreNews = !newsPage.isLast;
         _isLoading = false;
       });
-      
     } catch (e) {
       print('❌ Haberler yüklenirken hata: $e');
-      
-      // Hata durumunda boş liste göster
       setState(() {
-        _allNews = [];
         _isLoading = false;
       });
-      
-      // Kullanıcıya hata bildirimi göster
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Haberler yüklenirken bir sorun oluştu. Lütfen internet bağlantınızı kontrol edin.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
     }
   }
 
@@ -276,22 +295,44 @@ ${news.content}
       backgroundColor: Colors.white,
       displacement: 40.0,
       strokeWidth: 3.0,
-      child: _isLoading
+      child: _isLoading && newsList.isEmpty
           ? _buildLoadingIndicator()
           : newsList.isEmpty
               ? _buildEmptyList()
-              : ListView.builder(
-                  padding: const EdgeInsets.only(top: 16, bottom: 24, left: 16, right: 16),
-                  itemCount: newsList.length,
-                  itemBuilder: (context, index) {
-                    final news = newsList[index];
-                    return AnimatedContainer(
-                      duration: Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                      margin: const EdgeInsets.only(bottom: 20),
-                      child: _buildNewsCard(news),
-                    );
+              : NotificationListener<ScrollNotification>(
+                  onNotification: (scrollNotification) {
+                    if (scrollNotification is ScrollEndNotification) {
+                      _onNewsScroll();
+                    }
+                    return false;
                   },
+                  child: ListView.builder(
+                    controller: _newsScrollController,
+                    padding: const EdgeInsets.only(top: 16, bottom: 24, left: 16, right: 16),
+                    itemCount: newsList.length + (_hasMoreNews ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index < newsList.length) {
+                        final news = newsList[index];
+                        return AnimatedContainer(
+                          duration: Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                          margin: const EdgeInsets.only(bottom: 20),
+                          child: _buildNewsCard(news),
+                        );
+                      } else {
+                        // Yükleniyor göstergesi
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: AppTheme.primaryColor,
+                              strokeWidth: 2,
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                  ),
                 ),
     );
   }

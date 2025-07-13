@@ -75,6 +75,9 @@ class _HomeScreenState extends State<HomeScreen>
   // Cüzdan bakiyesi
   final String _walletBalance = '385,25 ₺';
 
+  // ScrollController ekle
+  final ScrollController _newsScrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
@@ -93,6 +96,8 @@ class _HomeScreenState extends State<HomeScreen>
     
     // Haberleri yükle
     _loadNews();
+    // Scroll listener ekle
+    _newsScrollController.addListener(_onNewsScroll);
   }
   
   // Haberleri servis üzerinden al
@@ -124,7 +129,7 @@ class _HomeScreenState extends State<HomeScreen>
       final newsPage = await newsService.getActiveNews(
         platform: PlatformType.MOBILE,
         page: _currentPage,
-        size: 20
+        size: 2,
       );
       
       setState(() {
@@ -210,7 +215,17 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void dispose() {
     _animationController.dispose();
+    _newsScrollController.dispose();
     super.dispose();
+  }
+
+  // Scroll ile aşağı inince yeni sayfa yükle
+  void _onNewsScroll() {
+    if (_newsScrollController.position.pixels >= _newsScrollController.position.maxScrollExtent - 100) {
+      if (!_isLoadingNews && _hasMoreNews) {
+        _loadNews();
+      }
+    }
   }
 
   @override
@@ -1419,20 +1434,42 @@ class _HomeScreenState extends State<HomeScreen>
             ),
           ),
           const SizedBox(height: 16),
-          _isLoadingNews
+          _isLoadingNews && _newsList.isEmpty
               ? _buildNewsLoadingIndicator()
               : _newsList.isEmpty
                   ? _buildEmptyNewsWidget()
                   : SizedBox(
                       height: 250,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: _newsList.length,
-                        physics: const BouncingScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(horizontal: 2),
-                        itemBuilder: (context, index) {
-                          return _buildNewsCard(_newsList[index]);
+                      child: NotificationListener<ScrollNotification>(
+                        onNotification: (scrollNotification) {
+                          if (scrollNotification is ScrollEndNotification) {
+                            _onNewsScroll();
+                          }
+                          return false;
                         },
+                        child: ListView.builder(
+                          controller: _newsScrollController,
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _newsList.length + (_hasMoreNews ? 1 : 0),
+                          physics: const BouncingScrollPhysics(),
+                          padding: const EdgeInsets.symmetric(horizontal: 2),
+                          itemBuilder: (context, index) {
+                            if (index < _newsList.length) {
+                              return _buildNewsCard(_newsList[index]);
+                            } else {
+                              // Yükleniyor göstergesi
+                              return SizedBox(
+                                width: 80,
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    color: AppTheme.primaryColor,
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                        ),
                       ),
                     ),
         ],
