@@ -261,22 +261,18 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
 
     // Video gösterilecekse
     if (_showFullVideo && hasVideo) {
-      return SizedBox(
-        width: double.infinity,
-        height: 220,
-        child: VideoPlayerWidget(
-          videoUrl: widget.news.videoUrl!,
-          autoPlay: true,
-          looping: false,
-          showControls: true,
-          fitToScreen: true,
-          showCloseButton: true,
-          showFullscreenButton: true,
-          onClosePressed: () => setState(() {
-            _showFullVideo = false;
-          }),
-          onFullscreenPressed: () => _showVideoFullscreen(),
-        ),
+      return VideoPlayerWidget(
+        videoUrl: widget.news.videoUrl!,
+        autoPlay: true,
+        looping: false,
+        showControls: true,
+        fitToScreen: true,
+        showCloseButton: true,
+        showFullscreenButton: true,
+        onClosePressed: () => setState(() {
+          _showFullVideo = false;
+        }),
+        onFullscreenPressed: () => _showVideoFullscreen(),
       );
     }
     
