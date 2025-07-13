@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:dio/dio.dart';
+import '../services/api_service.dart';
+import '../constants/api_constants.dart';
 
 class FeedbackScreen extends StatefulWidget {
   const FeedbackScreen({super.key});
@@ -17,12 +22,21 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
   final TextEditingController _emailController = TextEditingController();
   int _rating = 4;
   bool _isSubmitting = false;
+  File? _selectedPhoto;
+  final ImagePicker _picker = ImagePicker();
+
+  // Türkçe label -> Backend enum eşlemesi
+  final Map<String, String> _feedbackTypeMap = {
+    'Öneri': 'SUGGESTION',
+    'Şikayet': 'COMPLAINT',
+    'Teknik Hata': 'TECHNICAL_ISSUE',
+    'Diğer': 'OTHER',
+  };
 
   final List<String> _feedbackTypes = [
     'Öneri',
-    'Hata Bildirimi',
-    'Yeni Özellik İsteği',
-    'Kullanım Zorluğu',
+    'Şikayet',
+    'Teknik Hata',
     'Diğer',
   ];
 
@@ -32,6 +46,15 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
     _descriptionController.dispose();
     _emailController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickPhoto() async {
+    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        _selectedPhoto = File(pickedFile.path);
+      });
+    }
   }
 
   @override
@@ -67,6 +90,10 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
               _buildSectionTitle('Detaylı Açıklama'),
               const SizedBox(height: 8),
               _buildDescriptionInput(),
+              const SizedBox(height: 16),
+              _buildSectionTitle('Fotoğraf (isteğe bağlı)'),
+              const SizedBox(height: 8),
+              _buildPhotoPicker(),
               const SizedBox(height: 16),
               _buildSectionTitle('İletişim Bilgileri (İsteğe Bağlı)'),
               const SizedBox(height: 8),
@@ -237,6 +264,32 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
     );
   }
 
+  Widget _buildPhotoPicker() {
+    return Row(
+      children: [
+        ElevatedButton.icon(
+          onPressed: _pickPhoto,
+          icon: const Icon(Icons.photo),
+          label: const Text('Fotoğraf Seç'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primaryColor,
+            foregroundColor: Colors.white,
+          ),
+        ),
+        const SizedBox(width: 12),
+        _selectedPhoto != null
+            ? Expanded(
+                child: Text(
+                  _selectedPhoto!.path.split('/').last,
+                  style: const TextStyle(fontSize: 13),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              )
+            : const Text('Seçilmedi', style: TextStyle(fontSize: 13, color: Colors.grey)),
+      ],
+    );
+  }
+
   Widget _buildSubmitButton() {
     return SizedBox(
       width: double.infinity,
@@ -276,22 +329,30 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
       setState(() {
         _isSubmitting = true;
       });
-
-      // Burada gerçek bir API çağrısı yapılacak
-      // Şimdilik simüle ediyoruz
-      await Future.delayed(const Duration(seconds: 2));
-
-      if (!mounted) return;
-
-      setState(() {
-        _isSubmitting = false;
-      });
-
-      // Başarılı iletim mesajı
-      showDialog(
-        context: context,
-        builder:
-            (context) => AlertDialog(
+      try {
+        final apiService = ApiService();
+        apiService.setupTokenInterceptor();
+        final formData = FormData.fromMap({
+          'subject': _titleController.text.trim(),
+          'message': _descriptionController.text.trim(),
+          'type': _feedbackTypeMap[_feedbackType] ?? 'OTHER',
+          'source': 'mobil',
+          if (_selectedPhoto != null)
+            'photo': await MultipartFile.fromFile(_selectedPhoto!.path, filename: _selectedPhoto!.path.split('/').last),
+        });
+        final response = await apiService.dio.post(
+          ApiConstants.baseUrl + '/feedback/send',
+          data: formData,
+          options: Options(contentType: 'multipart/form-data'),
+        );
+        if (!mounted) return;
+        setState(() {
+          _isSubmitting = false;
+        });
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
               title: Row(
                 children: [
                   Icon(Icons.check_circle, color: AppTheme.successColor),
@@ -315,7 +376,41 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                 ),
               ],
             ),
-      );
+          );
+        } else {
+          _showErrorDialog('Geri bildirim gönderilemedi. Lütfen tekrar deneyin.');
+        }
+      } catch (e) {
+        setState(() {
+          _isSubmitting = false;
+        });
+        _showErrorDialog('Bir hata oluştu: $e');
+      }
     }
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.error, color: AppTheme.errorColor),
+            const SizedBox(width: 8),
+            const Text('Hata'),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+            ),
+            child: const Text('Tamam'),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -1197,7 +1197,7 @@ class _HomeScreenState extends State<HomeScreen>
       },
       {
         'icon': Icons.help_outline,
-        'label': 'Yardım',
+        'label': 'Geri Bildirim',
         'onTap': () => Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const FeedbackScreen()),
