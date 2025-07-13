@@ -23,6 +23,7 @@ import '../services/user_service.dart';
 import '../services/news_service.dart';
 import '../services/api_service.dart';
 import '../models/user_model.dart';
+import '../models/news/news_page.dart';
 import '../models/news/user_news_dto.dart';
 import '../models/news/platform_type.dart';
 import '../models/news/news_type.dart';
@@ -45,6 +46,10 @@ class _HomeScreenState extends State<HomeScreen>
   String _userName = ""; // Kullanıcı adını tutacak değişken
   bool _isLoadingNews = false;
   List<UserNewsDTO> _newsList = [];
+  // Pagination properties
+  int _currentPage = 0;
+  int _totalPages = 0;
+  bool _hasMoreNews = true;
   
   // Kullanıcının kayıtlı kartları
   final List<Map<String, dynamic>> _cards = [
@@ -90,7 +95,21 @@ class _HomeScreenState extends State<HomeScreen>
   }
   
   // Haberleri servis üzerinden al
-  Future<void> _loadNews() async {
+  Future<void> _loadNews({bool refresh = false}) async {
+    if (_isLoadingNews) return;
+    
+    // If refreshing, reset page to 0
+    if (refresh) {
+      setState(() {
+        _currentPage = 0;
+        _newsList = [];
+        _hasMoreNews = true;
+      });
+    }
+    
+    // If no more news and not refreshing, don't load
+    if (!_hasMoreNews && !refresh) return;
+    
     setState(() {
       _isLoadingNews = true;
     });
@@ -101,10 +120,21 @@ class _HomeScreenState extends State<HomeScreen>
       apiService.setupTokenInterceptor();
       
       final newsService = NewsService(apiService: apiService);
-      final news = await newsService.getActiveNews(platform: PlatformType.MOBILE);
+      final newsPage = await newsService.getActiveNews(
+        platform: PlatformType.MOBILE,
+        page: _currentPage,
+        size: 20
+      );
       
       setState(() {
-        _newsList = news;
+        if (refresh) {
+          _newsList = newsPage.content;
+        } else {
+          _newsList = [..._newsList, ...newsPage.content];
+        }
+        _currentPage = newsPage.pageNumber + 1;
+        _totalPages = newsPage.totalPages;
+        _hasMoreNews = !newsPage.isLast;
         _isLoadingNews = false;
       });
     } catch (e) {
@@ -162,10 +192,10 @@ class _HomeScreenState extends State<HomeScreen>
       final newsService = NewsService(apiService: apiService);
       //final userId = await (SecureStorageService().getUserId() ?? '');
       //final news = await newsService.getUserNews(userId: userId);
-      final news = await newsService.getActiveNews(platform: PlatformType.MOBILE);
+      final newsPage = await newsService.getActiveNews(platform: PlatformType.MOBILE);
       
       setState(() {
-        _newsList = news;
+        _newsList = newsPage.content;
       });
     } catch (e) {
       debugPrint('Haberler yüklenirken hata: $e');
@@ -1229,22 +1259,29 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
               ],
             ),
-            child: GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                childAspectRatio: 1.1,
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
-              ),
-              itemCount: mainServices.length,
-              itemBuilder: (context, index) {
-                final service = mainServices[index];
-                return _buildServiceItem(
-                  icon: service['icon'] as IconData,
-                  label: service['label'] as String,
-                  onTap: service['onTap'] as VoidCallback,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    childAspectRatio: constraints.maxWidth < 400 ? 0.95 : 1.1,
+                    mainAxisSpacing: 16,
+                    crossAxisSpacing: 16,
+                  ),
+                  itemCount: mainServices.length,
+                  itemBuilder: (context, index) {
+                    final service = mainServices[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 6), // Extra bottom padding to avoid overflow
+                      child: _buildServiceItem(
+                        icon: service['icon'] as IconData,
+                        label: service['label'] as String,
+                        onTap: service['onTap'] as VoidCallback,
+                      ),
+                    );
+                  },
                 );
               },
             ),
@@ -1726,25 +1763,13 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _showNewsDetails(UserNewsDTO news) {
-    // Haber görüntüleme kaydını tut
-    final apiService = ApiService();
-    apiService.setupTokenInterceptor();
-    final newsService = NewsService(apiService: apiService);
-    newsService.recordNewsView(news.id);
-    
-    // Video içeren bir haber için, eğer thumbnail varsa, kullanıcıya seçenek sun
-    if (news.videoUrl != null && news.videoUrl!.isNotEmpty && 
-        news.thumbnailUrl != null && news.thumbnailUrl!.isNotEmpty) {
-      _showVideoNewsOptions(news);
-    } else {
-      // Normal haber detay sayfasına git
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => NewsDetailScreen(news: news),
-        ),
-      );
-    }
+    // Her durumda doğrudan haber detay sayfasına git
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => NewsDetailScreen(news: news),
+      ),
+    );
   }
   
   void _showVideoNewsOptions(UserNewsDTO news) {

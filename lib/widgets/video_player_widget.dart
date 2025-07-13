@@ -39,7 +39,7 @@ class VideoPlayerWidget extends StatefulWidget {
 }
 
 class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
-  late VideoPlayerController _controller;
+  VideoPlayerController? _controller;
   bool _isInitialized = false;
   bool _hasError = false;
   String _errorMessage = '';
@@ -55,6 +55,11 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   Future<void> _initializeVideoPlayer() async {
     try {
       String videoUrl = widget.videoUrl;
+      
+      // URL'nin geçerli olup olmadığını kontrol et
+      if (videoUrl.isEmpty) {
+        throw Exception('Video URL boş olamaz');
+      }
       
       // Cloudinary URL'sini video player için optimize et
       if (videoUrl.contains('cloudinary.com') && videoUrl.contains('/video/upload/')) {
@@ -75,51 +80,49 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       }
 
       // Controller'ı başlat
-      await _controller.initialize();
+      await _controller!.initialize();
 
       // Ayarları uygula
-      _controller.setLooping(widget.looping);
+      _controller!.setLooping(widget.looping);
       
       if (widget.autoPlay) {
-        await _controller.play();
+        await _controller!.play();
         _isPlaying = true;
       }
 
       // Listener ekle
-      _controller.addListener(_videoListener);
+      _controller!.addListener(_videoListener);
 
-      setState(() {
-        _isInitialized = true;
-      });
-      
-      debugPrint('✅ Video başarıyla yüklendi');
-      debugPrint('🎥 Video çözünürlüğü: ${_controller.value.size}');
-      debugPrint('🎥 Video aspect ratio: ${_controller.value.aspectRatio}');
-      debugPrint('🎥 Optimal height: ${_getOptimalHeight()}');
-      
-      // Video yüklendikten sonra widget'ı yeniden boyutlandır
       if (mounted) {
         setState(() {
-          // Boyut hesaplamaları için tekrar render tetikle
+          _isInitialized = true;
         });
       }
+      
+      debugPrint('✅ Video başarıyla yüklendi');
+      debugPrint('🎥 Video çözünürlüğü: ${_controller!.value.size}');
+      debugPrint('🎥 Video aspect ratio: ${_controller!.value.aspectRatio}');
+      debugPrint('🎥 Optimal height: ${_getOptimalHeight()}');
+      
     } catch (e) {
       debugPrint('❌ Video yükleme hatası: $e');
-      setState(() {
-        _hasError = true;
-        _errorMessage = 'Video yüklenirken hata oluştu: $e';
-      });
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _errorMessage = 'Video yüklenirken hata oluştu: $e';
+        });
+      }
     }
   }
 
   // Video çözünürlüğüne göre optimal aspect ratio hesapla
   double _getOptimalAspectRatio() {
-    if (!_isInitialized) {
+    if (!_isInitialized || _controller == null) {
       return widget.aspectRatio ?? 16 / 9; // Default aspect ratio
     }
     
-    final videoSize = _controller.value.size;
-    final videoAspectRatio = _controller.value.aspectRatio;
+    final videoSize = _controller!.value.size;
+    final videoAspectRatio = _controller!.value.aspectRatio;
     
     debugPrint('🎥 Video boyutu: ${videoSize.width}x${videoSize.height}');
     debugPrint('🎥 Video aspect ratio: $videoAspectRatio');
@@ -139,7 +142,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
   // Video çözünürlüğüne göre container height hesapla
   double _getOptimalHeight() {
-    if (!_isInitialized || !mounted) {
+    if (!_isInitialized || !mounted || _controller == null) {
       return widget.minHeight ?? 200; // Default height
     }
     
@@ -171,30 +174,34 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   }
 
   void _videoListener() {
-    if (mounted) {
+    if (mounted && _controller != null) {
       setState(() {
-        _isPlaying = _controller.value.isPlaying;
+        _isPlaying = _controller!.value.isPlaying;
       });
     }
   }
 
   @override
   void dispose() {
-    _controller.removeListener(_videoListener);
-    _controller.dispose();
+    if (_controller != null) {
+      _controller!.removeListener(_videoListener);
+      _controller!.dispose();
+    }
     super.dispose();
   }
 
   void _togglePlayPause() {
-    setState(() {
-      if (_controller.value.isPlaying) {
-        _controller.pause();
-        _isPlaying = false;
-      } else {
-        _controller.play();
-        _isPlaying = true;
-      }
-    });
+    if (_controller != null) {
+      setState(() {
+        if (_controller!.value.isPlaying) {
+          _controller!.pause();
+          _isPlaying = false;
+        } else {
+          _controller!.play();
+          _isPlaying = true;
+        }
+      });
+    }
   }
 
   void _toggleControls() {
@@ -228,7 +235,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
           });
           
           // Videoyu oynat
-          _controller.play();
+          _controller!.play();
           _isPlaying = true;
         }
       });
@@ -329,6 +336,10 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   }
 
   Widget _buildVideoPlayer() {
+    if (_controller == null) {
+      return _buildErrorWidget();
+    }
+    
     final aspectRatio = _getOptimalAspectRatio();
     
     // We no longer use a fixed height Container to wrap the video player
@@ -340,7 +351,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
           // Video player
           AspectRatio(
             aspectRatio: aspectRatio,
-            child: VideoPlayer(_controller),
+            child: VideoPlayer(_controller!),
           ),
           
           // Kontroller overlay
@@ -372,6 +383,10 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   }
 
   Widget _buildVideoControls() {
+    if (_controller == null) {
+      return const SizedBox.shrink();
+    }
+    
     return LayoutBuilder(
       builder: (context, constraints) {
         // Use constraints to build responsive controls
@@ -445,7 +460,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
                 children: [
                   // Progress bar
                   VideoProgressIndicator(
-                    _controller,
+                    _controller!,
                     allowScrubbing: true,
                     colors: VideoProgressColors(
                       playedColor: AppTheme.primaryColor,
@@ -461,14 +476,14 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          _formatDuration(_controller.value.position),
+                          _formatDuration(_controller!.value.position),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 10,
                           ),
                         ),
                         Text(
-                          _formatDuration(_controller.value.duration),
+                          _formatDuration(_controller!.value.duration),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 10,

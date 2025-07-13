@@ -388,14 +388,9 @@ class TokenService {
         // Access token kontrolü
         final accessToken = await _secureStorage.getAccessToken();
         if (accessToken == null) {
-          // Sessizce login sayfasına yönlendir, hata gösterme
-          _navigateToLogin();
-          return handler.reject(
-            DioException(
-              requestOptions: options,
-              type: DioExceptionType.cancel,
-            ),
-          );
+          debugPrint('Access token bulunamadı, login olmadan devam ediliyor');
+          // Token yoksa request'i olduğu gibi gönder, interceptor sadece uyarı verir
+          return handler.next(options);
         }
         
         // Access token'ın süresi dolmak üzere mi kontrol et
@@ -415,14 +410,9 @@ class TokenService {
               // Son token yenileme zamanını kaydet (başarılı yenileme sonrası)
               await _saveLastTokenRenewalTime();
             } else {
-              // Sessizce login sayfasına yönlendir, hata gösterme
-              _navigateToLogin();
-              return handler.reject(
-                DioException(
-                  requestOptions: options,
-                  type: DioExceptionType.cancel,
-                ),
-              );
+              debugPrint('Token yenileme başarısız, ancak kullanıcı oturumuna müdahale edilmiyor');
+              // Token yenileme başarısız olsa da kullanıcıyı login sayfasına yönlendirmiyoruz
+              // Sadece mevcut token ile devam etmeye çalışıyoruz
             }
           } else {
             debugPrint('Token yenileme gerekiyor, ancak son yenilemeden beri yeterli süre geçmediği için atlanıyor');
@@ -479,14 +469,8 @@ class TokenService {
             // Yeni token ile isteği tekrar gönder
             final accessToken = await _secureStorage.getAccessToken();
             if (accessToken == null) {
-              // Sessizce login sayfasına yönlendir, hata gösterme
-              _navigateToLogin();
-              return handler.reject(
-                DioException(
-                  requestOptions: error.requestOptions,
-                  type: DioExceptionType.cancel,
-                ),
-              );
+              debugPrint('Token yenileme sonrası access token bulunamadı, hata döndürülüyor');
+              return handler.next(error);
             }
             
             error.requestOptions.headers['Authorization'] = 'Bearer $accessToken';
@@ -501,7 +485,7 @@ class TokenService {
             
             try {
               final response = await _dio.request(
-                error.requestOptions.path,
+                error.requestOptions.uri.toString(),
                 options: opts,
                 data: error.requestOptions.data,
                 queryParameters: error.requestOptions.queryParameters,
@@ -510,34 +494,16 @@ class TokenService {
               debugPrint('İstek başarıyla yeniden gönderildi');
               return handler.resolve(response);
             } catch (retryError) {
-              // Sessizce login sayfasına yönlendir, hata gösterme
-              _navigateToLogin();
-              return handler.reject(
-                DioException(
-                  requestOptions: error.requestOptions,
-                  type: DioExceptionType.cancel,
-                ),
-              );
+              debugPrint('İstek tekrar gönderilirken hata oluştu: $retryError');
+              return handler.next(error);
             }
           } else {
-            // Sessizce login sayfasına yönlendir, hata gösterme
-            _navigateToLogin();
-            return handler.reject(
-              DioException(
-                requestOptions: error.requestOptions,
-                type: DioExceptionType.cancel,
-              ),
-            );
+            debugPrint('Token yenileme başarısız, orijinal hata döndürülüyor');
+            return handler.next(error);
           }
         } catch (e) {
-          // Sessizce login sayfasına yönlendir, hata gösterme
-          _navigateToLogin();
-          return handler.reject(
-            DioException(
-              requestOptions: error.requestOptions,
-              type: DioExceptionType.cancel,
-            ),
-          );
+          debugPrint('Token yenileme sırasında hata oluştu: $e');
+          return handler.next(error);
         }
       }
       
@@ -551,17 +517,15 @@ class TokenService {
       final accessToken = await _secureStorage.getAccessToken();
       final refreshToken = await _secureStorage.getRefreshToken();
       
-      // Eğer refresh token yoksa veya süresi dolmuşsa, tüm tokenları sil ve login sayfasına yönlendir
+      // Eğer refresh token yoksa veya süresi dolmuşsa, sadece false döndür
       if (refreshToken == null || await isRefreshTokenExpired()) {
-        debugPrint('Refresh token yok veya süresi dolmuş, tüm tokenlar siliniyor ve login sayfasına yönlendiriliyor');
+        debugPrint('Refresh token yok veya süresi dolmuş, oturum geçersiz');
         await _secureStorage.clearAll();
-        _navigateToLogin();
         return false;
       }
       
       if (accessToken == null) {
-        debugPrint('Access token yok, login sayfasına yönlendiriliyor');
-        _navigateToLogin();
+        debugPrint('Access token yok, oturum geçersiz');
         return false;
       }
       
@@ -579,9 +543,8 @@ class TokenService {
         final isRefreshTokenExpired = JwtDecoder.isExpired(refreshToken);
         
         if (isRefreshTokenExpired) {
-          debugPrint('Refresh token süresi dolmuş, yeniden giriş gerekiyor');
+          debugPrint('Refresh token süresi dolmuş, oturum geçersiz');
           await _secureStorage.clearAll();
-          _navigateToLogin();
           return false; // Her iki token da geçersiz
         }
         
@@ -591,17 +554,28 @@ class TokenService {
       } catch (e) {
         debugPrint('JWT token decode hatası: $e');
         await _secureStorage.clearAll();
-        _navigateToLogin();
         return false; // JWT decode hatası, güvenli tarafta kal
       }
     } catch (e) {
       debugPrint('Token kontrolü hatası: $e');
       await _secureStorage.clearAll();
-      _navigateToLogin();
       return false; // Genel bir hata, güvenli tarafta kal
     }
   }
   
+  // Kullanıcı login kontrolü ve gerekli durumlarda yönlendirme
+  Future<bool> checkAuthenticationAndRedirect() async {
+    final hasValidTokens = await this.hasValidTokens();
+    
+    if (!hasValidTokens) {
+      debugPrint('Kullanıcı oturumu geçersiz, login sayfasına yönlendiriliyor');
+      _navigateToLogin();
+      return false;
+    }
+    
+    return true;
+  }
+
   // Token'dan user ID bilgisini alma
   Future<int?> getUserIdFromToken() async {
     final accessToken = await _secureStorage.getAccessToken();

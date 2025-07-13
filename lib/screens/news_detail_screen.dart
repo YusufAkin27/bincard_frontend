@@ -28,14 +28,10 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
     super.initState();
     _isLiked = widget.news.likedByUser ?? false;
     
-    // Görüntülenme kaydı
+    // Yerel görüntülenme sayısını artır (UI için)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final newsService = NewsService();
-      // API'ye görüntülenme kaydı gönder
-      newsService.recordNewsView(widget.news.id);
-      
-      // Yerel görüntülenme sayısını artır (UI için)
       setState(() {
+        final newsService = NewsService();
         final updatedNews = newsService.incrementLocalViewCount(widget.news);
         // This is a bit of a hack since widget.news is final
         // In a real app, you'd use state management (Provider, Bloc, etc.)

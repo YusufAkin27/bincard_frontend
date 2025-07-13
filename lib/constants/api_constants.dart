@@ -39,7 +39,7 @@ class ApiConstants {
   static String get newsByCategoryEndpoint => '/news/by-category';
   static String get newsViewHistoryEndpoint => '/news/view-history';
   static String get newsSuggestedEndpoint => '/news/suggested';
-  static String newsViewEndpoint(String newsId) => '/news/$newsId/view';
+  static String newsDetailEndpoint(String newsId) => '/news/$newsId';
   
   // Content Type ve diğer header'lar
   static const String contentType = 'application/json';

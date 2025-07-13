@@ -35,9 +35,6 @@ class _NewsDetailFromIdScreenState extends State<NewsDetailFromIdScreen> {
       final news = await _newsService.getNewsById(widget.newsId);
 
       if (news != null) {
-        // Haberi kaydet ve görüntüleme kaydı yap
-        await _newsService.recordNewsView(widget.newsId);
-        
         if (mounted) {
           setState(() {
             _news = news;

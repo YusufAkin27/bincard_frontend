@@ -516,13 +516,7 @@ class AuthService {
         // Sessizce token bilgilerini temizle
         await clearTokens();
         
-        // Login sayfasına sessizce yönlendir
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (navigatorKey.currentContext != null) {
-            Navigator.of(navigatorKey.currentContext!).pushNamedAndRemoveUntil('/login', (route) => false);
-          }
-        });
-        
+        debugPrint('Token geçersiz, ancak otomatik yönlendirme yapılmıyor');
         return false;
       }
       
