@@ -292,8 +292,9 @@ class NewsService {
   // ID'ye göre haber getir (deep link için)
   Future<UserNewsDTO?> getNewsById(int newsId) async {
     try {
+      _apiService.setupTokenInterceptor(); // Token interceptor her zaman eklensin
       final response = await _apiService.get(
-        ApiConstants.newsDetailEndpoint(newsId.toString()),
+        ApiConstants.newsDetailWithPlatformEndpoint(newsId.toString()),
       );
       
       if (response.statusCode == 200 && response.data != null) {

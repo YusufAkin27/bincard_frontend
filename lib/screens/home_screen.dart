@@ -30,6 +30,7 @@ import '../models/news/news_type.dart';
 import '../models/news/news_priority.dart';
 import 'news_detail_screen.dart';
 import '../widgets/video_player_widget.dart';
+import 'news_detail_from_id_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -217,39 +218,45 @@ class _HomeScreenState extends State<HomeScreen>
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       body: SafeArea(
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            _buildAppBar(),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.only(
-                  left: 20.0,
-                  right: 20.0,
-                  top: 16.0,
-                  bottom: 8.0,
+        child: RefreshIndicator(
+          onRefresh: () async {
+            await _loadNews(refresh: true);
+          },
+          color: AppTheme.primaryColor,
+          child: CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              _buildAppBar(),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(
+                    left: 20.0,
+                    right: 20.0,
+                    top: 16.0,
+                    bottom: 8.0,
+                  ),
+                  child: _buildWelcomeHeader(),
                 ),
-                child: _buildWelcomeHeader(),
               ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  _buildBalanceSummary(),
-                  const SizedBox(height: 28),
-                  _buildBusCardsSection(),
-                  const SizedBox(height: 28),
-                  _buildQuickActionsSection(),
-                  const SizedBox(height: 28),
-                  _buildMainServicesGrid(),
-                  const SizedBox(height: 28),
-                  _buildNewsSliderSection(),
-                  const SizedBox(height: 120), // Increased bottom padding for scroll
-                ]),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    _buildBalanceSummary(),
+                    const SizedBox(height: 28),
+                    _buildBusCardsSection(),
+                    const SizedBox(height: 28),
+                    _buildQuickActionsSection(),
+                    const SizedBox(height: 28),
+                    _buildMainServicesGrid(),
+                    const SizedBox(height: 28),
+                    _buildNewsSliderSection(),
+                    const SizedBox(height: 120), // Increased bottom padding for scroll
+                  ]),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: BottomAppBar(
@@ -1763,11 +1770,10 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _showNewsDetails(UserNewsDTO news) {
-    // Her durumda doğrudan haber detay sayfasına git
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => NewsDetailScreen(news: news),
+        builder: (context) => NewsDetailFromIdScreen(newsId: news.id),
       ),
     );
   }

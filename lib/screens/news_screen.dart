@@ -12,6 +12,7 @@ import '../widgets/video_player_widget.dart';
 import 'news_detail_screen.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:math';
+import 'news_detail_from_id_screen.dart';
 
 // Video oynatma durumunu takip eden sınıf
 class VideoPlayState {
@@ -636,15 +637,12 @@ ${news.content}
 
   // Haber detayı gösterme fonksiyonu
   void _showNewsDetails(UserNewsDTO news) async {
-    // Detay sayfasına git
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => NewsDetailScreen(news: news),
+        builder: (context) => NewsDetailFromIdScreen(newsId: news.id),
       ),
     );
-    
-    // Sayfadan dönüş sonrası haberleri yenile
     _refreshNews();
   }
   

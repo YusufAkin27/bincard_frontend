@@ -43,6 +43,7 @@ class ApiConstants {
   static String newsLikeEndpoint(String newsId) => '/news/$newsId/like';
   static String newsUnlikeEndpoint(String newsId) => '/news/$newsId/unlike';
   static String get newsLikedEndpoint => '/news/liked';
+  static String newsDetailWithPlatformEndpoint(String newsId, {String platform = 'MOBILE'}) => '/news/$newsId?platform=$platform';
   
   // Content Type ve diğer header'lar
   static const String contentType = 'application/json';

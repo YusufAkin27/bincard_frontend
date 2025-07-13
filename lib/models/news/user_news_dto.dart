@@ -36,101 +36,106 @@ class UserNewsDTO {
   });
 
   factory UserNewsDTO.fromJson(Map<String, dynamic> json) {
-    String? imageUrl;
-    String? videoUrl;
-    String? thumbnailUrl;
-    int viewCount = 0;
-    int likeCount = 0;
-    
-    // Debug logging
-    debugPrint('🔍 Parsing news item: ${json['id']} - ${json['title']}');
-    
-    // Image alanını kontrol et
-    final imageField = json['image'];
-    
-    if (imageField != null && imageField is String && imageField.isNotEmpty) {
-      // Eğer URL video formatında ise (.mp4, .mov, .avi, .webm vb.)
-      if (_isVideoUrl(imageField)) {
-        videoUrl = _optimizeVideoUrl(imageField);
-        thumbnailUrl = _generateThumbnailUrl(imageField); // Video için thumbnail oluştur
-        imageUrl = null; // Video ise image olarak gösterme
+    try {
+      String? imageUrl;
+      String? videoUrl;
+      String? thumbnailUrl;
+      int viewCount = 0;
+      int likeCount = 0;
+      
+      // Debug logging
+      debugPrint('🔍 Parsing news item:  [1m${json['id']} - ${json['title']}');
+      
+      // Image alanını kontrol et
+      final imageField = json['image'];
+      
+      if (imageField != null && imageField is String && imageField.isNotEmpty) {
+        // Eğer URL video formatında ise (.mp4, .mov, .avi, .webm vb.)
+        if (_isVideoUrl(imageField)) {
+          videoUrl = _optimizeVideoUrl(imageField);
+          thumbnailUrl = _generateThumbnailUrl(imageField); // Video için thumbnail oluştur
+          imageUrl = null; // Video ise image olarak gösterme
+        } else {
+          imageUrl = imageField;
+          videoUrl = null;
+        }
+      }
+      
+      // Ayrıca ayrı videoUrl alanı varsa onu kullan
+      if (json['videoUrl'] != null && json['videoUrl'].toString().isNotEmpty) {
+        videoUrl = _optimizeVideoUrl(json['videoUrl']);
+        if (thumbnailUrl == null) {
+          thumbnailUrl = _generateThumbnailUrl(json['videoUrl']);
+        }
+      } else if (json['video_url'] != null && json['video_url'].toString().isNotEmpty) {
+        videoUrl = _optimizeVideoUrl(json['video_url']);
+        if (thumbnailUrl == null) {
+          thumbnailUrl = _generateThumbnailUrl(json['video_url']);
+        }
+      } else if (json['video'] != null && json['video'].toString().isNotEmpty) {
+        videoUrl = _optimizeVideoUrl(json['video']);
+        if (thumbnailUrl == null) {
+          thumbnailUrl = _generateThumbnailUrl(json['video']);
+        }
+      }
+      
+      // Açıkça tanımlanmış thumbnail alanı varsa onu kullan
+      if (json['thumbnailUrl'] != null && json['thumbnailUrl'].toString().isNotEmpty) {
+        thumbnailUrl = json['thumbnailUrl'];
+      } else if (json['thumbnail_url'] != null && json['thumbnail_url'].toString().isNotEmpty) {
+        thumbnailUrl = json['thumbnail_url'];
+      } else if (json['thumbnail'] != null && json['thumbnail'].toString().isNotEmpty) {
+        thumbnailUrl = json['thumbnail'];
+      }
+      
+      // viewCount ve likeCount alanlarını kontrol et
+      if (json['viewCount'] != null) {
+        viewCount = json['viewCount'] is int ? json['viewCount'] : int.tryParse(json['viewCount'].toString()) ?? 0;
+      } else if (json['view_count'] != null) {
+        viewCount = json['view_count'] is int ? json['view_count'] : int.tryParse(json['view_count'].toString()) ?? 0;
+      }
+      
+      if (json['likeCount'] != null) {
+        likeCount = json['likeCount'] is int ? json['likeCount'] : int.tryParse(json['likeCount'].toString()) ?? 0;
+      } else if (json['like_count'] != null) {
+        likeCount = json['like_count'] is int ? json['like_count'] : int.tryParse(json['like_count'].toString()) ?? 0;
+      }
+      
+      // Debug için view count ve like count bilgilerini yazdır
+      debugPrint('📊 Haber ${json['id']} görüntülenme: $viewCount, beğeni: $likeCount');
+      
+      // datetime alanını kontrol et
+      DateTime? createdAt;
+      if (json['createdAt'] != null) {
+        createdAt = DateTime.tryParse(json['createdAt']);
+      } else if (json['date'] != null) {
+        createdAt = DateTime.tryParse(json['date']);
+      } else if (json['created_at'] != null) {
+        createdAt = DateTime.tryParse(json['created_at']);
       } else {
-        imageUrl = imageField;
-        videoUrl = null;
+        createdAt = DateTime.now(); // Varsayılan tarih
       }
+      
+      return UserNewsDTO(
+        id: json['id'],
+        title: json['title'],
+        content: json['content'],
+        image: imageUrl,
+        videoUrl: videoUrl,
+        thumbnailUrl: thumbnailUrl,
+        likedByUser: json['likedByUser'] ?? false,
+        viewedByUser: json['viewedByUser'] ?? false,
+        priority: NewsPriorityExtension.fromString(json['priority'] ?? 'NORMAL'),
+        type: NewsTypeExtension.fromString(json['type'] ?? 'DUYURU'),
+        createdAt: createdAt,
+        summary: json['summary'],
+        viewCount: viewCount,
+        likeCount: likeCount,
+      );
+    } catch (e, stack) {
+      debugPrint('❌ UserNewsDTO parse hatası: $e\n$stack');
+      rethrow;
     }
-    
-    // Ayrıca ayrı videoUrl alanı varsa onu kullan
-    if (json['videoUrl'] != null && json['videoUrl'].toString().isNotEmpty) {
-      videoUrl = _optimizeVideoUrl(json['videoUrl']);
-      if (thumbnailUrl == null) {
-        thumbnailUrl = _generateThumbnailUrl(json['videoUrl']);
-      }
-    } else if (json['video_url'] != null && json['video_url'].toString().isNotEmpty) {
-      videoUrl = _optimizeVideoUrl(json['video_url']);
-      if (thumbnailUrl == null) {
-        thumbnailUrl = _generateThumbnailUrl(json['video_url']);
-      }
-    } else if (json['video'] != null && json['video'].toString().isNotEmpty) {
-      videoUrl = _optimizeVideoUrl(json['video']);
-      if (thumbnailUrl == null) {
-        thumbnailUrl = _generateThumbnailUrl(json['video']);
-      }
-    }
-    
-    // Açıkça tanımlanmış thumbnail alanı varsa onu kullan
-    if (json['thumbnailUrl'] != null && json['thumbnailUrl'].toString().isNotEmpty) {
-      thumbnailUrl = json['thumbnailUrl'];
-    } else if (json['thumbnail_url'] != null && json['thumbnail_url'].toString().isNotEmpty) {
-      thumbnailUrl = json['thumbnail_url'];
-    } else if (json['thumbnail'] != null && json['thumbnail'].toString().isNotEmpty) {
-      thumbnailUrl = json['thumbnail'];
-    }
-    
-    // viewCount ve likeCount alanlarını kontrol et
-    if (json['viewCount'] != null) {
-      viewCount = json['viewCount'] is int ? json['viewCount'] : int.tryParse(json['viewCount'].toString()) ?? 0;
-    } else if (json['view_count'] != null) {
-      viewCount = json['view_count'] is int ? json['view_count'] : int.tryParse(json['view_count'].toString()) ?? 0;
-    }
-    
-    if (json['likeCount'] != null) {
-      likeCount = json['likeCount'] is int ? json['likeCount'] : int.tryParse(json['likeCount'].toString()) ?? 0;
-    } else if (json['like_count'] != null) {
-      likeCount = json['like_count'] is int ? json['like_count'] : int.tryParse(json['like_count'].toString()) ?? 0;
-    }
-    
-    // Debug için view count ve like count bilgilerini yazdır
-    debugPrint('📊 Haber ${json['id']} görüntülenme: $viewCount, beğeni: $likeCount');
-    
-    // datetime alanını kontrol et
-    DateTime? createdAt;
-    if (json['createdAt'] != null) {
-      createdAt = DateTime.tryParse(json['createdAt']);
-    } else if (json['date'] != null) {
-      createdAt = DateTime.tryParse(json['date']);
-    } else if (json['created_at'] != null) {
-      createdAt = DateTime.tryParse(json['created_at']);
-    } else {
-      createdAt = DateTime.now(); // Varsayılan tarih
-    }
-    
-    return UserNewsDTO(
-      id: json['id'],
-      title: json['title'],
-      content: json['content'],
-      image: imageUrl,
-      videoUrl: videoUrl,
-      thumbnailUrl: thumbnailUrl,
-      likedByUser: json['likedByUser'] ?? false,
-      viewedByUser: json['viewedByUser'] ?? false,
-      priority: NewsPriorityExtension.fromString(json['priority'] ?? 'NORMAL'),
-      type: NewsTypeExtension.fromString(json['type'] ?? 'DUYURU'),
-      createdAt: createdAt,
-      summary: json['summary'],
-      viewCount: viewCount,
-      likeCount: likeCount,
-    );
   }
   
   // Video URL olup olmadığını kontrol eden yardımcı fonksiyon

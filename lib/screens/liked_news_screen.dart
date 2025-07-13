@@ -3,7 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../theme/app_theme.dart';
 import '../models/news/user_news_dto.dart';
 import '../services/news_service.dart';
-import 'news_detail_screen.dart';
+import 'news_detail_from_id_screen.dart';
 
 final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 
@@ -86,7 +86,7 @@ class _LikedNewsScreenState extends State<LikedNewsScreen> with RouteAware {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => NewsDetailScreen(news: news),
+                              builder: (context) => NewsDetailFromIdScreen(newsId: news.id),
                             ),
                           );
                         },
