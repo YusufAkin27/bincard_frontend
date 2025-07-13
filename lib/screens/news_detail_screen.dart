@@ -22,11 +22,14 @@ class NewsDetailScreen extends StatefulWidget {
 class _NewsDetailScreenState extends State<NewsDetailScreen> {
   bool _isLiked = false;
   bool _showFullVideo = false;
+  bool _isLiking = false;
+  int _likeCount = 0;
 
   @override
   void initState() {
     super.initState();
     _isLiked = widget.news.likedByUser ?? false;
+    _likeCount = widget.news.likeCount;
     
     // Yerel görüntülenme sayısını artır (UI için)
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -115,7 +118,7 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            "${widget.news.likeCount}",
+                            "$_likeCount",
                             style: TextStyle(
                               fontSize: 14,
                               color: Colors.grey,
@@ -126,21 +129,23 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
                       const SizedBox(width: 12),
                       
                       // Beğen butonu
-                      IconButton(
-                        onPressed: () {
-                          setState(() {
-                            _isLiked = !_isLiked;
-                          });
-                        },
-                        icon: Icon(
-                          _isLiked ? Icons.favorite : Icons.favorite_outline,
-                          color: _isLiked ? Colors.red : Colors.grey,
-                          size: 22,
-                        ),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        visualDensity: VisualDensity.compact,
-                      ),
+                      _isLiking
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : IconButton(
+                            onPressed: _handleLikeButton,
+                            icon: Icon(
+                              _isLiked ? Icons.favorite : Icons.favorite_outline,
+                              color: _isLiked ? Colors.red : Colors.grey,
+                              size: 22,
+                            ),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            visualDensity: VisualDensity.compact,
+                          ),
                       const SizedBox(width: 12),
                       
                       // Paylaş butonu
@@ -531,5 +536,36 @@ $truncatedContent
         ),
       ),
     );
+  }
+
+  void _handleLikeButton() async {
+    setState(() => _isLiking = true);
+    final newsService = NewsService();
+    bool success;
+    if (_isLiked) {
+      success = await newsService.unlikeNews(widget.news.id);
+    } else {
+      success = await newsService.likeNews(widget.news.id);
+    }
+    setState(() {
+      if (success) {
+        _isLiked = !_isLiked;
+        _likeCount += _isLiked ? 1 : -1;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_isLiked ? 'Haber beğenildi' : 'Beğeni kaldırıldı'),
+            backgroundColor: _isLiked ? Colors.red : Colors.grey,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('İşlem başarısız. Lütfen tekrar deneyin.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      _isLiking = false;
+    });
   }
 }

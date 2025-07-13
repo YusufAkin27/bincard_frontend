@@ -313,4 +313,61 @@ class NewsService {
       return null;
     }
   }
+
+  /// Haberi beğen
+  Future<bool> likeNews(int newsId) async {
+    try {
+      final response = await _apiService.post(
+        ApiConstants.newsLikeEndpoint(newsId.toString()),
+      );
+      if (response.statusCode == 200 && response.data != null && response.data['success'] == true) {
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Haber beğenme hatası: $e');
+      return false;
+    }
+  }
+
+  /// Haber beğenisini kaldır
+  Future<bool> unlikeNews(int newsId) async {
+    try {
+      final response = await _apiService.delete(
+        ApiConstants.newsUnlikeEndpoint(newsId.toString()),
+      );
+      if (response.statusCode == 200 && response.data != null && response.data['success'] == true) {
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Haber beğeni kaldırma hatası: $e');
+      return false;
+    }
+  }
+
+  /// Beğendiğim haberleri getir
+  Future<List<UserNewsDTO>> getLikedNews() async {
+    try {
+      final response = await _apiService.get(
+        ApiConstants.newsLikedEndpoint,
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        // API paginated response: content anahtarı ile geliyor
+        if (response.data is Map<String, dynamic> && response.data.containsKey('content')) {
+          final List<dynamic> newsList = response.data['content'];
+          return newsList.map((item) => UserNewsDTO.fromJson(item)).toList();
+        }
+        // Legacy: success/data
+        if (response.data['success'] == true && response.data['data'] != null) {
+          final List<dynamic> newsList = response.data['data'];
+          return newsList.map((item) => UserNewsDTO.fromJson(item)).toList();
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Beğenilen haberleri getirme hatası: $e');
+      return [];
+    }
+  }
 }

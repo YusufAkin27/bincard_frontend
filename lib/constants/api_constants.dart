@@ -40,6 +40,9 @@ class ApiConstants {
   static String get newsViewHistoryEndpoint => '/news/view-history';
   static String get newsSuggestedEndpoint => '/news/suggested';
   static String newsDetailEndpoint(String newsId) => '/news/$newsId';
+  static String newsLikeEndpoint(String newsId) => '/news/$newsId/like';
+  static String newsUnlikeEndpoint(String newsId) => '/news/$newsId/unlike';
+  static String get newsLikedEndpoint => '/news/liked';
   
   // Content Type ve diğer header'lar
   static const String contentType = 'application/json';

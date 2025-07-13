@@ -15,6 +15,7 @@ import 'services/app_state_service.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import 'package:app_links/app_links.dart';
+import 'screens/liked_news_screen.dart';
 
 // Global navigatorKey - token service gibi servislerden sayfalar arası geçiş için
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -282,6 +283,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           navigatorObservers: [
             // Route değişikliklerini log'la
             DebugRouteObserver(),
+            routeObserver, // Beğendiğim Haberler için
           ],
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
