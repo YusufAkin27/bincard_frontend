@@ -80,7 +80,11 @@ class _CardRenewalScreenState extends State<CardRenewalScreen> {
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         backgroundColor: AppTheme.primaryColor,
-        title: const Text('Kart Vizesi Yeniletme'),
+        title: const Text(
+          'Kart Vizesi Yeniletme',
+          style: TextStyle(color: Colors.white),
+        ),
+        iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
       ),
       body: Stepper(
