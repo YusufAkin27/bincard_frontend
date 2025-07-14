@@ -2,11 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'api_service.dart';
+import '../constants/api_constants.dart';
 
 class MapService {
   static final MapService _instance = MapService._internal();
   factory MapService() => _instance;
   MapService._internal();
+
+  static const String _lastPermissionRequestKey = 'last_location_permission_request';
+  static const String _locationTrackingKey = 'location_tracking_enabled';
+
+  // Konum takibi açık mı kontrol et
+  Future<bool> isLocationTrackingEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_locationTrackingKey) ?? true;
+  }
 
   // Konum izni kontrolü
   Future<bool> checkLocationPermission() async {
@@ -27,6 +39,7 @@ class MapService {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
         debugPrint('Konum izinleri reddedildi.');
+        await _setLastPermissionRequestToday();
         return false;
       }
     }
@@ -36,6 +49,7 @@ class MapService {
       debugPrint(
         'Konum izinleri kalıcı olarak reddedildi, ayarlardan açılması gerekiyor.',
       );
+      await _setLastPermissionRequestToday();
       return false;
     }
 
@@ -56,6 +70,38 @@ class MapService {
       debugPrint('Konum alınamadı: $e');
       return null;
     }
+  }
+
+  // Konum bilgisini API'ye gönder
+  Future<void> sendLocationToApi(double latitude, double longitude) async {
+    try {
+      final apiService = ApiService();
+      await apiService.post(
+        ApiConstants.userLocationEndpoint,
+        data: {
+          'latitude': latitude.toString(),
+          'longitude': longitude.toString(),
+        },
+      );
+      debugPrint('Konum API\'ye gönderildi: $latitude, $longitude');
+    } catch (e) {
+      debugPrint('Konum API\'ye gönderilemedi: $e');
+    }
+  }
+
+  // Son izin istenen günü kaydet
+  Future<void> _setLastPermissionRequestToday() async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now();
+    await prefs.setString(_lastPermissionRequestKey, today.toIso8601String().substring(0, 10));
+  }
+
+  // Bugün izin istendi mi kontrol et
+  Future<bool> isPermissionRequestedToday() async {
+    final prefs = await SharedPreferences.getInstance();
+    final last = prefs.getString(_lastPermissionRequestKey);
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    return last == today;
   }
 
   // Mevcut konum LatLng tipinde

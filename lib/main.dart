@@ -16,6 +16,8 @@ import 'package:flutter/services.dart';
 import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'screens/liked_news_screen.dart';
+import 'services/map_service.dart';
+import 'screens/privacy_settings_screen.dart';
 
 // Global navigatorKey - token service gibi servislerden sayfalar arası geçiş için
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -147,6 +149,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   late AppLinks _appLinks;
   StreamSubscription<Uri>? _linkSubscription;
 
+  Timer? _locationTimer;
+  bool _locationPermissionGranted = false;
+
   @override
   void initState() {
     super.initState();
@@ -155,6 +160,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     
     // Deep linking için initPlatformState metodunu çağır
     _initDeepLinkHandling();
+    // Konum izni ve gönderim kontrolünü başlat
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndRequestLocationPermission(context, showMessage: true);
+      _startPeriodicLocationSend(context);
+    });
   }
   
   // Deep linking için gerekli hazırlıkları yap
@@ -256,6 +266,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     
     // Dinlemeyi durdur
     WidgetsBinding.instance.removeObserver(this);
+    _locationTimer?.cancel();
     super.dispose();
   }
 
@@ -263,9 +274,52 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // Uygulama arka plana geçtiğinde veya kapatıldığında
     if (state == AppLifecycleState.detached || state == AppLifecycleState.paused) {
-      // Uygulamanın düzgün kapandığını işaretle
       AppStateService.markAppAsClosed();
+      _locationTimer?.cancel();
+    } else if (state == AppLifecycleState.resumed) {
+      // Uygulama tekrar öne geldiğinde izin ve gönderim kontrolü
+      _checkAndRequestLocationPermission(context, showMessage: true);
+      _startPeriodicLocationSend(context);
     }
+  }
+
+  Future<void> _checkAndRequestLocationPermission(BuildContext context, {bool showMessage = false}) async {
+    final mapService = MapService();
+    final locationTrackingEnabled = await mapService.isLocationTrackingEnabled();
+    if (!locationTrackingEnabled) return;
+    final granted = await mapService.checkLocationPermission();
+    _locationPermissionGranted = granted;
+    if (!granted) {
+      // Bugün izin istendi mi kontrol et
+      final requestedToday = await mapService.isPermissionRequestedToday();
+      if (!requestedToday && context.mounted && showMessage) {
+        // Kullanıcıya izin verin mesajı göster
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Lütfen konum izni verin, uygulama tam çalışabilmesi için gereklidir.')),
+        );
+      }
+      return;
+    }
+    // İzin verildiyse hemen konumu gönder
+    final pos = await mapService.getCurrentLocation();
+    if (pos != null) {
+      await mapService.sendLocationToApi(pos.latitude, pos.longitude);
+    }
+  }
+
+  void _startPeriodicLocationSend(BuildContext context) {
+    _locationTimer?.cancel();
+    // 5 dakikada bir çalışacak timer başlat
+    _locationTimer = Timer.periodic(const Duration(minutes: 5), (timer) async {
+      final mapService = MapService();
+      final locationTrackingEnabled = await mapService.isLocationTrackingEnabled();
+      if (!locationTrackingEnabled) return;
+      if (!_locationPermissionGranted) return;
+      final pos = await mapService.getCurrentLocation();
+      if (pos != null) {
+        await mapService.sendLocationToApi(pos.latitude, pos.longitude);
+      }
+    });
   }
 
   @override

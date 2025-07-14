@@ -10,7 +10,7 @@ class PaymentPoint {
   final List<String> paymentMethods;
   final String description;
   final bool active;
-  final List<String> photos;
+  final List<dynamic> photos;
   final DateTime createdAt;
   final DateTime lastUpdated;
   final double? distance;
@@ -42,7 +42,7 @@ class PaymentPoint {
       paymentMethods: List<String>.from(json['paymentMethods'] ?? []),
       description: json['description'],
       active: json['active'],
-      photos: List<String>.from(json['photos'] ?? []),
+      photos: json['photos'] ?? [],
       createdAt: DateTime.parse(json['createdAt']),
       lastUpdated: DateTime.parse(json['lastUpdated']),
       distance: json['distance'] != null ? (json['distance'] as num).toDouble() : null,

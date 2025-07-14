@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PrivacySettingsScreen extends StatefulWidget {
   const PrivacySettingsScreen({super.key});
@@ -14,6 +15,26 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
   bool _personalisedAds = false;
   bool _dataCollection = true;
   bool _cookiesEnabled = true;
+
+  static const String _locationTrackingKey = 'location_tracking_enabled';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLocationTracking();
+  }
+
+  Future<void> _loadLocationTracking() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _locationTracking = prefs.getBool(_locationTrackingKey) ?? true;
+    });
+  }
+
+  Future<void> _saveLocationTracking(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_locationTrackingKey, value);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,6 +75,7 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
                     setState(() {
                       _locationTracking = value;
                     });
+                    _saveLocationTracking(value);
                   },
                 ),
                 const Divider(),

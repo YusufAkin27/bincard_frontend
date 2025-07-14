@@ -1,7 +1,7 @@
 class ApiConstants {
   // Base URL for API requests
   // Updated API URL
-  static const String baseUrl = 'http://192.168.174.214:8080/v1/api';
+  static const String baseUrl = 'http://192.168.219.61:8080/v1/api';
   
   // Ortam değişkenleri
   static const Duration connectTimeout = Duration(seconds: 30);
@@ -52,7 +52,13 @@ class ApiConstants {
   static String get paymentPointNearby => '/payment-point/nearby';
   static String paymentPointByCity(String city) => '/payment-point/by-city/$city';
   static String paymentPointByPaymentMethod(String method) => '/payment-point/by-payment-method?paymentMethod=$method';
+  // Nearby payment points endpoint (query parametreli)
+  static String paymentPointNearbyWithParams({required double latitude, required double longitude, double radiusKm = 1.0, int page = 0, int size = 10, String sort = 'distance,asc'}) {
+    return '/payment-point/nearby?latitude=$latitude&longitude=$longitude&radiusKm=$radiusKm&page=$page&size=$size&sort=$sort';
+  }
 
+  // Location endpoint
+  static String get userLocationEndpoint => '/user/location';
   
   // Content Type ve diğer header'lar
   static const String contentType = 'application/json';

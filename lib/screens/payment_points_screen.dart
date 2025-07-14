@@ -6,6 +6,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as latlng;
 import 'map_location_picker_screen.dart';
+import '../services/map_service.dart';
+import '../constants/api_constants.dart';
+import '../services/user_service.dart';
 
 class PaymentPointsScreen extends StatefulWidget {
   const PaymentPointsScreen({Key? key}) : super(key: key);
@@ -27,8 +30,9 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
   List<String> _selectedPaymentMethods = [];
   double? _latitude;
   double? _longitude;
-  double? _radiusKm;
+  double _radiusKm = 5.0; // Default 5 km
   bool _showNearby = false;
+  double _mapZoom = 13.0;
 
   final List<String> _allPaymentMethods = [
     'CASH', 'CREDIT_CARD', 'DEBIT_CARD', 'QR_CODE'
@@ -106,16 +110,34 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
     });
   }
 
-  void _getNearby() {
-    if (_latitude != null && _longitude != null) {
-      setState(() {
-        _paymentPointsFuture = PaymentPointService().getNearbyPaymentPoints(
-          latitude: _latitude!,
-          longitude: _longitude!,
-          radiusKm: _radiusKm ?? 10.0,
-        );
-      });
+  void _getNearby() async {
+    final mapService = MapService();
+    final hasPermission = await mapService.checkLocationPermission();
+    if (!hasPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Konum izni gerekli.')));
+      }
+      return;
     }
+    final pos = await mapService.getCurrentLocation();
+    if (pos == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Konum alınamadı.')));
+      }
+      return;
+    }
+    setState(() {
+      _latitude = pos.latitude;
+      _longitude = pos.longitude;
+      _mapZoom = 16.0; // Yakınlaştır
+      _paymentPointsFuture = PaymentPointService().getNearbyPaymentPoints(
+        latitude: pos.latitude,
+        longitude: pos.longitude,
+        radiusKm: _radiusKm,
+        page: 0,
+        size: 10,
+      );
+    });
   }
 
   Future<void> _getCurrentLocation() async {
@@ -170,8 +192,8 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
   List<Marker> _buildMarkers() {
     return _lastFetchedPoints.map((point) {
       return Marker(
-        width: 40,
-        height: 40,
+        width: 48,
+        height: 48,
         point: latlng.LatLng(point.location.latitude, point.location.longitude),
         child: GestureDetector(
           onTap: () {
@@ -182,7 +204,23 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
               ),
             );
           },
-          child: const Icon(Icons.location_on, color: Colors.red, size: 36),
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.green.shade600,
+              border: Border.all(color: Colors.white, width: 4),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Center(
+              child: Icon(Icons.store_mall_directory, color: Colors.white, size: 28),
+            ),
+          ),
         ),
       );
     }).toList(growable: false);
@@ -192,6 +230,9 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
     if (_lastFetchedPoints.isNotEmpty) {
       final first = _lastFetchedPoints.first.location;
       return latlng.LatLng(first.latitude, first.longitude);
+    }
+    if (_latitude != null && _longitude != null) {
+      return latlng.LatLng(_latitude!, _longitude!);
     }
     return latlng.LatLng(39.925533, 32.866287); // Türkiye merkez
   }
@@ -249,6 +290,55 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
     }
   }
 
+  Future<Widget> _buildUserLocationMarker() async {
+    final userService = UserService();
+    try {
+      final profile = await userService.getUserProfile();
+      if (profile.profileUrl != null && profile.profileUrl!.isNotEmpty) {
+        return Container(
+          width: 54,
+          height: 54,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 5),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.25),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: ClipOval(
+            child: Image.network(
+              profile.profileUrl!,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => const Icon(Icons.person_pin_circle, color: Colors.blue, size: 32),
+            ),
+          ),
+        );
+      }
+    } catch (_) {}
+    // Profil fotoğrafı yoksa mavi ikon
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.blue.shade700,
+        border: Border.all(color: Colors.white, width: 5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.25),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: const Center(
+        child: Icon(Icons.person_pin_circle, color: Colors.white, size: 32),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -267,10 +357,8 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
                   return const Center(child: CircularProgressIndicator());
                 } else if (snapshot.hasError) {
                   return Center(child: Text('Hata: \\${snapshot.error}'));
-                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(child: Text('Haritada gösterilecek ödeme noktası yok.'));
                 }
-                final points = snapshot.data!;
+                final points = snapshot.data ?? [];
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (_lastFetchedPoints != points) {
                     _updateLastFetchedPoints(points);
@@ -279,7 +367,7 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
                 return FlutterMap(
                   options: MapOptions(
                     center: _initialMapCenter(),
-                    zoom: 7.5,
+                    zoom: _mapZoom,
                   ),
                   children: [
                     TileLayer(
@@ -287,7 +375,41 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
                       subdomains: const ['a', 'b', 'c'],
                       userAgentPackageName: 'com.example.city_card.city_card',
                     ),
-                    MarkerLayer(markers: _buildMarkers()),
+                    MarkerLayer(markers: [
+                      ..._buildMarkers(),
+                      if (_latitude != null && _longitude != null)
+                        Marker(
+                          width: 54,
+                          height: 54,
+                          point: latlng.LatLng(_latitude!, _longitude!),
+                          child: FutureBuilder<Widget>(
+                            future: _buildUserLocationMarker(),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState == ConnectionState.done && snapshot.data != null) {
+                                return snapshot.data!;
+                              } else {
+                                return Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.blue.shade700,
+                                    border: Border.all(color: Colors.white, width: 5),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.25),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Center(
+                                    child: Icon(Icons.person_pin_circle, color: Colors.white, size: 32),
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                    ]),
                   ],
                 );
               },
@@ -308,6 +430,34 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
                   ],
                 ),
                 children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Text('Yakınlık (km):'),
+                            Expanded(
+                              child: Slider(
+                                value: _radiusKm,
+                                min: 1.0,
+                                max: 10.0,
+                                divisions: 9,
+                                label: _radiusKm.toStringAsFixed(1),
+                                onChanged: (value) {
+                                  setState(() {
+                                    _radiusKm = value;
+                                  });
+                                },
+                              ),
+                            ),
+                            Text('${_radiusKm.toStringAsFixed(1)} km'),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                   ConstrainedBox(
                     constraints: BoxConstraints(
                       maxHeight: MediaQuery.of(context).size.height * 0.65,
@@ -505,6 +655,16 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
                                           padding: const EdgeInsets.only(right: 6),
                                           child: Icon(_paymentMethodIcon(m), size: 18, color: _paymentMethodIconColor(context, m)),
                                         )),
+                                      ],
+                                    ),
+                                    Row(
+                                      children: [
+                                        Icon(Icons.social_distance, size: 16, color: Colors.grey[600]),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          point.distance != null ? '${point.distance!.toStringAsFixed(2)} km' : '-',
+                                          style: const TextStyle(fontSize: 13),
+                                        ),
                                       ],
                                     ),
                                   ],

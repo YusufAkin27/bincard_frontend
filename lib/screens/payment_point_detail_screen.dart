@@ -80,6 +80,43 @@ class _PaymentPointDetailScreenState extends State<PaymentPointDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (point.photos.isNotEmpty)
+                    SizedBox(
+                      height: 180,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: point.photos.length,
+                        separatorBuilder: (context, i) => const SizedBox(width: 12),
+                        itemBuilder: (context, i) {
+                          final photo = point.photos[i];
+                          String url = '';
+                          if (photo is String) {
+                            url = photo;
+                          } else if (photo is Map) {
+                            final dynamic val = photo['imageUrl'];
+                            if (val is String) {
+                              url = val;
+                            }
+                          }
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Image.network(
+                              url,
+                              width: 260,
+                              height: 180,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => Container(
+                                color: Colors.grey[200],
+                                width: 260,
+                                height: 180,
+                                child: const Icon(Icons.broken_image, size: 40, color: Colors.grey),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  const SizedBox(height: 16),
                   Row(
                     children: [
                       Icon(Icons.location_on, color: Theme.of(context).primaryColor, size: 32),
