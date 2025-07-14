@@ -3,7 +3,6 @@ import '../models/payment_point_model.dart';
 import '../services/payment_point_service.dart';
 import 'payment_point_detail_screen.dart';
 import 'package:geolocator/geolocator.dart';
-// import 'package:google_maps_flutter/google_maps_flutter.dart'; // kaldırıldı
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as latlng;
 import 'map_location_picker_screen.dart';
@@ -36,7 +35,27 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
   ];
 
   List<PaymentPoint> _lastFetchedPoints = [];
-  // GoogleMapController? _mapController; // kaldırıldı
+
+  // Yeni: Hızlı şehir ve ödeme yöntemi filtreleme için controllerlar
+  final TextEditingController _cityFilterController = TextEditingController();
+  String? _quickCity;
+  String? _quickPaymentMethod;
+
+  void _filterByCity() {
+    if (_quickCity != null && _quickCity!.isNotEmpty) {
+      setState(() {
+        _paymentPointsFuture = PaymentPointService().getByCity(_quickCity!);
+      });
+    }
+  }
+
+  void _filterByPaymentMethod() {
+    if (_quickPaymentMethod != null && _quickPaymentMethod!.isNotEmpty) {
+      setState(() {
+        _paymentPointsFuture = PaymentPointService().getByPaymentMethod(_quickPaymentMethod!);
+      });
+    }
+  }
 
   @override
   void initState() {
@@ -46,17 +65,44 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
 
   void _search() {
     setState(() {
-      _paymentPointsFuture = PaymentPointService().searchPaymentPoints(
-        name: _name,
-        city: _city,
-        district: _district,
-        paymentMethods: _selectedPaymentMethods.isNotEmpty ? _selectedPaymentMethods : null,
-        active: _active,
-        workingHours: _workingHours,
-        latitude: _latitude,
-        longitude: _longitude,
-        radiusKm: _radiusKm,
-      );
+      // Sadece şehir girilmiş ve diğer filtreler boşsa yeni API'yi kullan
+      if ((_city != null && _city!.isNotEmpty) &&
+          (_name == null || _name!.isEmpty) &&
+          (_district == null || _district!.isEmpty) &&
+          (_selectedPaymentMethods.isEmpty) &&
+          _active == null &&
+          (_workingHours == null || _workingHours!.isEmpty) &&
+          _latitude == null &&
+          _longitude == null &&
+          _radiusKm == null) {
+        _paymentPointsFuture = PaymentPointService().getByCity(_city!);
+      }
+      // Sadece bir ödeme yöntemi seçilmiş ve diğer filtreler boşsa yeni API'yi kullan
+      else if ((_selectedPaymentMethods.length == 1) &&
+          (_name == null || _name!.isEmpty) &&
+          (_city == null || _city!.isEmpty) &&
+          (_district == null || _district!.isEmpty) &&
+          _active == null &&
+          (_workingHours == null || _workingHours!.isEmpty) &&
+          _latitude == null &&
+          _longitude == null &&
+          _radiusKm == null) {
+        _paymentPointsFuture = PaymentPointService().getByPaymentMethod(_selectedPaymentMethods.first);
+      }
+      // Diğer durumlarda mevcut arama fonksiyonunu kullan
+      else {
+        _paymentPointsFuture = PaymentPointService().searchPaymentPoints(
+          name: _name,
+          city: _city,
+          district: _district,
+          paymentMethods: _selectedPaymentMethods.isNotEmpty ? _selectedPaymentMethods : null,
+          active: _active,
+          workingHours: _workingHours,
+          latitude: _latitude,
+          longitude: _longitude,
+          radiusKm: _radiusKm,
+        );
+      }
     });
   }
 
@@ -181,7 +227,7 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
       ),
       body: Column(
         children: [
-          // OpenStreetMap Harita Bölümü
+          // Harita sabit
           SizedBox(
             height: 260,
             child: FutureBuilder<List<PaymentPoint>>(
@@ -217,269 +263,227 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
               },
             ),
           ),
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
-                  child: Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: ExpansionTile(
-                      title: Row(
-                        children: const [
-                          Icon(Icons.filter_alt_outlined),
-                          SizedBox(width: 8),
-                          Text('Filtrele / Ara', style: TextStyle(fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8),
-                          child: Form(
-                            key: _formKey,
-                            child: Wrap(
-                              runSpacing: 8,
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: TextFormField(
-                                        decoration: const InputDecoration(labelText: 'İsim', isDense: true),
-                                        onChanged: (v) => _name = v.isEmpty ? null : v,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: TextFormField(
-                                        decoration: const InputDecoration(labelText: 'Şehir', isDense: true),
-                                        onChanged: (v) => _city = v.isEmpty ? null : v,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: TextFormField(
-                                        decoration: const InputDecoration(labelText: 'İlçe', isDense: true),
-                                        onChanged: (v) => _district = v.isEmpty ? null : v,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: TextFormField(
-                                        decoration: const InputDecoration(labelText: 'Çalışma Saatleri', isDense: true),
-                                        onChanged: (v) => _workingHours = v.isEmpty ? null : v,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                DropdownButtonFormField<bool>(
-                                  decoration: const InputDecoration(labelText: 'Aktif mi?', isDense: true),
-                                  items: const [
-                                    DropdownMenuItem(value: null, child: Text('Hepsi')),
-                                    DropdownMenuItem(value: true, child: Text('Aktif')),
-                                    DropdownMenuItem(value: false, child: Text('Pasif')),
-                                  ],
-                                  onChanged: (v) => _active = v,
-                                  value: _active,
-                                ),
-                                Wrap(
-                                  spacing: 8,
-                                  children: _allPaymentMethods.map((method) {
-                                    return FilterChip(
-                                      label: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(_paymentMethodIcon(method), size: 16),
-                                          const SizedBox(width: 4),
-                                          Text(method),
-                                        ],
-                                      ),
-                                      selected: _selectedPaymentMethods.contains(method),
-                                      onSelected: (selected) {
-                                        setState(() {
-                                          if (selected) {
-                                            _selectedPaymentMethods.add(method);
-                                          } else {
-                                            _selectedPaymentMethods.remove(method);
-                                          }
-                                        });
-                                      },
-                                    );
-                                  }).toList(),
-                                ),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: TextFormField(
-                                        decoration: const InputDecoration(labelText: 'Enlem (latitude)', isDense: true),
-                                        keyboardType: TextInputType.number,
-                                        controller: TextEditingController(text: _latitude?.toString() ?? ''),
-                                        onChanged: (v) => _latitude = double.tryParse(v),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: TextFormField(
-                                        decoration: const InputDecoration(labelText: 'Boylam (longitude)', isDense: true),
-                                        keyboardType: TextInputType.number,
-                                        controller: TextEditingController(text: _longitude?.toString() ?? ''),
-                                        onChanged: (v) => _longitude = double.tryParse(v),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: TextFormField(
-                                        decoration: const InputDecoration(labelText: 'Yarıçap (km)', isDense: true),
-                                        keyboardType: TextInputType.number,
-                                        onChanged: (v) => _radiusKm = double.tryParse(v),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Row(
-                                  children: [
-                                    OutlinedButton.icon(
-                                      onPressed: _getCurrentLocation,
-                                      icon: const Icon(Icons.my_location),
-                                      label: const Text('Konumumu Kullan'),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    OutlinedButton.icon(
-                                      onPressed: _selectLocationOnMap,
-                                      icon: const Icon(Icons.map),
-                                      label: const Text('Haritadan Seç'),
-                                    ),
-                                  ],
-                                ),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    ElevatedButton.icon(
-                                      onPressed: _search,
-                                      icon: const Icon(Icons.search),
-                                      label: const Text('Ara'),
-                                      style: ElevatedButton.styleFrom(
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    OutlinedButton.icon(
-                                      onPressed: _getNearby,
-                                      icon: const Icon(Icons.location_on_outlined),
-                                      label: const Text('Yakındakiler'),
-                                      style: OutlinedButton.styleFrom(
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+          // Filtreleme barı sabit
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
+            child: Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: ExpansionTile(
+                title: Row(
+                  children: const [
+                    Icon(Icons.filter_alt_outlined),
+                    SizedBox(width: 8),
+                    Text('Filtrele / Ara', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ],
                 ),
-                // Liste bölümü
-                FutureBuilder<List<PaymentPoint>>(
-                  future: _paymentPointsFuture,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
-                    } else if (snapshot.hasError) {
-                      return Center(child: Text('Hata: \\${snapshot.error}'));
-                    } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                      return const Center(child: Text('Ödeme noktası bulunamadı.'));
-                    }
-                    final points = snapshot.data!;
-                    return ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: points.length,
-                      itemBuilder: (context, index) {
-                        final point = points[index];
-                        return Card(
-                          elevation: 4,
-                          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(14),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => PaymentPointDetailScreen(paymentPointId: point.id),
-                                ),
-                              );
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.all(14.0),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.65,
+                    ),
+                    child: SingleChildScrollView(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8),
+                        child: Form(
+                          key: _formKey,
+                          child: Wrap(
+                            runSpacing: 8,
+                            children: [
+                              Row(
                                 children: [
-                                  Icon(Icons.location_on, color: Theme.of(context).primaryColor, size: 32),
-                                  const SizedBox(width: 12),
                                   Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                point.name,
-                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                              ),
-                                            ),
-                                            _buildStatusChip(point.active),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          point.address.street,
-                                          style: const TextStyle(fontSize: 13, color: Colors.black87),
-                                        ),
-                                        Text(
-                                          point.address.district + ', ' + point.address.city,
-                                          style: const TextStyle(fontSize: 13, color: Colors.black54),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Row(
-                                          children: [
-                                            Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-                                            const SizedBox(width: 4),
-                                            Text(point.workingHours, style: const TextStyle(fontSize: 13)),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Row(
-                                          children: [
-                                            ...point.paymentMethods.map((m) => Padding(
-                                              padding: const EdgeInsets.only(right: 6),
-                                              child: Icon(_paymentMethodIcon(m), size: 18, color: Colors.blueGrey),
-                                            )),
-                                          ],
-                                        ),
-                                      ],
+                                    child: TextFormField(
+                                      decoration: const InputDecoration(labelText: 'İsim', isDense: true),
+                                      onChanged: (v) => _name = v.isEmpty ? null : v,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: TextFormField(
+                                      decoration: const InputDecoration(labelText: 'Şehir', isDense: true),
+                                      onChanged: (v) => _city = v.isEmpty ? null : v,
                                     ),
                                   ),
                                 ],
                               ),
-                            ),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextFormField(
+                                      decoration: const InputDecoration(labelText: 'İlçe', isDense: true),
+                                      onChanged: (v) => _district = v.isEmpty ? null : v,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: TextFormField(
+                                      decoration: const InputDecoration(labelText: 'Çalışma Saatleri', isDense: true),
+                                      onChanged: (v) => _workingHours = v.isEmpty ? null : v,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              DropdownButtonFormField<bool>(
+                                decoration: const InputDecoration(labelText: 'Aktif mi?', isDense: true),
+                                items: const [
+                                  DropdownMenuItem(value: null, child: Text('Hepsi')),
+                                  DropdownMenuItem(value: true, child: Text('Aktif')),
+                                  DropdownMenuItem(value: false, child: Text('Pasif')),
+                                ],
+                                onChanged: (v) => _active = v,
+                                value: _active,
+                              ),
+                              Wrap(
+                                spacing: 8,
+                                children: _allPaymentMethods.map((method) {
+                                  return FilterChip(
+                                    label: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(_paymentMethodIcon(method), size: 16),
+                                        const SizedBox(width: 4),
+                                        Text(method),
+                                      ],
+                                    ),
+                                    selected: _selectedPaymentMethods.contains(method),
+                                    onSelected: (selected) {
+                                      setState(() {
+                                        if (selected) {
+                                          _selectedPaymentMethods.add(method);
+                                        } else {
+                                          _selectedPaymentMethods.remove(method);
+                                        }
+                                      });
+                                    },
+                                  );
+                                }).toList(),
+                              ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  ElevatedButton.icon(
+                                    onPressed: _search,
+                                    icon: const Icon(Icons.search),
+                                    label: const Text('Ara'),
+                                    style: ElevatedButton.styleFrom(
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  OutlinedButton.icon(
+                                    onPressed: _getNearby,
+                                    icon: const Icon(Icons.location_on_outlined),
+                                    label: const Text('Yakındakiler'),
+                                    style: OutlinedButton.styleFrom(
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
-                        );
-                      },
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Sadece liste kaydırılabilir
+          Expanded(
+            child: FutureBuilder<List<PaymentPoint>>(
+              future: _paymentPointsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                } else if (snapshot.hasError) {
+                  return Center(child: Text('Hata: \\${snapshot.error}'));
+                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return const Center(child: Text('Ödeme noktası bulunamadı.'));
+                }
+                final points = snapshot.data!;
+                return ListView.builder(
+                  padding: EdgeInsets.zero,
+                  itemCount: points.length,
+                  itemBuilder: (context, index) {
+                    final point = points[index];
+                    return Card(
+                      elevation: 4,
+                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => PaymentPointDetailScreen(paymentPointId: point.id),
+                            ),
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(14.0),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.location_on, color: Theme.of(context).primaryColor, size: 32),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            point.name,
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                          ),
+                                        ),
+                                        _buildStatusChip(point.active),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      point.address.street,
+                                      style: const TextStyle(fontSize: 13, color: Colors.black87),
+                                    ),
+                                    Text(
+                                      point.address.district + ', ' + point.address.city,
+                                      style: const TextStyle(fontSize: 13, color: Colors.black54),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
+                                        const SizedBox(width: 4),
+                                        Text(point.workingHours, style: const TextStyle(fontSize: 13)),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        ...point.paymentMethods.map((m) => Padding(
+                                          padding: const EdgeInsets.only(right: 6),
+                                          child: Icon(_paymentMethodIcon(m), size: 18, color: Colors.blueGrey),
+                                        )),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     );
                   },
-                ),
-              ],
+                );
+              },
             ),
           ),
         ],

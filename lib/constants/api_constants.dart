@@ -50,9 +50,9 @@ class ApiConstants {
   static String paymentPointById(int id) => '/payment-point/$id';
   static String get paymentPointSearch => '/payment-point/search';
   static String get paymentPointNearby => '/payment-point/nearby';
+  static String paymentPointByCity(String city) => '/payment-point/by-city/$city';
+  static String paymentPointByPaymentMethod(String method) => '/payment-point/by-payment-method?paymentMethod=$method';
 
-  // Google Maps API Key (örn. android için)
-  static const String googleMapsApiKey = 'YOUR_GOOGLE_MAPS_API_KEY';
   
   // Content Type ve diğer header'lar
   static const String contentType = 'application/json';

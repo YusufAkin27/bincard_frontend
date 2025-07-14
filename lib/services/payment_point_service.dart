@@ -81,4 +81,26 @@ class PaymentPointService {
       throw Exception('Yakındaki ödeme noktaları alınamadı');
     }
   }
+
+  Future<List<PaymentPoint>> getByCity(String city) async {
+    final response = await http.get(Uri.parse(baseUrl + ApiConstants.paymentPointByCity(city)));
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      final List content = data['data']['content'];
+      return content.map((e) => PaymentPoint.fromJson(e)).toList();
+    } else {
+      throw Exception('Şehir bazlı ödeme noktaları alınamadı');
+    }
+  }
+
+  Future<List<PaymentPoint>> getByPaymentMethod(String paymentMethod) async {
+    final response = await http.get(Uri.parse(baseUrl + ApiConstants.paymentPointByPaymentMethod(paymentMethod)));
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      final List content = data['data']['content'];
+      return content.map((e) => PaymentPoint.fromJson(e)).toList();
+    } else {
+      throw Exception('Ödeme yöntemi bazlı ödeme noktaları alınamadı');
+    }
+  }
 } 
