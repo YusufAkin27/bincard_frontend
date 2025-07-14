@@ -114,9 +114,12 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
     final mapService = MapService();
     final hasPermission = await mapService.checkLocationPermission();
     if (!hasPermission) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Konum izni gerekli.')));
+      // Konum servisleri kapalıysa doğrudan ayarları aç
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        await mapService.openLocationSettings();
       }
+      // Diğer durumlarda (izin reddi vs.) hiçbir şey gösterilmez
       return;
     }
     final pos = await mapService.getCurrentLocation();
