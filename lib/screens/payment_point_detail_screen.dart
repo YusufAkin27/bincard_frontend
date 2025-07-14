@@ -127,7 +127,6 @@ class _PaymentPointDetailScreenState extends State<PaymentPointDetailScreen> {
                           style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                         ),
                       ),
-                      _buildStatusChip(point.active),
                     ],
                   ),
                   const SizedBox(height: 16),

@@ -67,46 +67,34 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
     _paymentPointsFuture = PaymentPointService().getAllPaymentPoints();
   }
 
-  void _search() {
+  void _search() async {
+    final mapService = MapService();
+    final hasPermission = await mapService.checkLocationPermission();
+    if (!hasPermission) {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        await mapService.openLocationSettings();
+      }
+      return;
+    }
+    final pos = await mapService.getCurrentLocation();
+    if (pos == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Konum alınamadı.')));
+      }
+      return;
+    }
     setState(() {
-      // Sadece şehir girilmiş ve diğer filtreler boşsa yeni API'yi kullan
-      if ((_city != null && _city!.isNotEmpty) &&
-          (_name == null || _name!.isEmpty) &&
-          (_district == null || _district!.isEmpty) &&
-          (_selectedPaymentMethods.isEmpty) &&
-          _active == null &&
-          (_workingHours == null || _workingHours!.isEmpty) &&
-          _latitude == null &&
-          _longitude == null &&
-          _radiusKm == null) {
-        _paymentPointsFuture = PaymentPointService().getByCity(_city!);
-      }
-      // Sadece bir ödeme yöntemi seçilmiş ve diğer filtreler boşsa yeni API'yi kullan
-      else if ((_selectedPaymentMethods.length == 1) &&
-          (_name == null || _name!.isEmpty) &&
-          (_city == null || _city!.isEmpty) &&
-          (_district == null || _district!.isEmpty) &&
-          _active == null &&
-          (_workingHours == null || _workingHours!.isEmpty) &&
-          _latitude == null &&
-          _longitude == null &&
-          _radiusKm == null) {
-        _paymentPointsFuture = PaymentPointService().getByPaymentMethod(_selectedPaymentMethods.first);
-      }
-      // Diğer durumlarda mevcut arama fonksiyonunu kullan
-      else {
-        _paymentPointsFuture = PaymentPointService().searchPaymentPoints(
-          name: _name,
-          city: _city,
-          district: _district,
-          paymentMethods: _selectedPaymentMethods.isNotEmpty ? _selectedPaymentMethods : null,
-          active: _active,
-          workingHours: _workingHours,
-          latitude: _latitude,
-          longitude: _longitude,
-          radiusKm: _radiusKm,
-        );
-      }
+      _latitude = pos.latitude;
+      _longitude = pos.longitude;
+      _radiusKm = 5.0;
+      _paymentPointsFuture = PaymentPointService().getNearbyPaymentPoints(
+        latitude: pos.latitude,
+        longitude: pos.longitude,
+        radiusKm: _radiusKm,
+        page: 0,
+        size: 10,
+      );
     });
   }
 
@@ -132,6 +120,7 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
     setState(() {
       _latitude = pos.latitude;
       _longitude = pos.longitude;
+      _radiusKm = 5.0; // Yakındakiler butonunda daima 5 km
       _mapZoom = 16.0; // Yakınlaştır
       _paymentPointsFuture = PaymentPointService().getNearbyPaymentPoints(
         latitude: pos.latitude,
@@ -293,6 +282,21 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
     }
   }
 
+  String _paymentMethodLabel(String method) {
+    switch (method) {
+      case 'CASH':
+        return 'Nakit';
+      case 'CREDIT_CARD':
+        return 'Kredi Kartı';
+      case 'DEBIT_CARD':
+        return 'Banka Kartı';
+      case 'QR_CODE':
+        return 'QR Kod';
+      default:
+        return method;
+    }
+  }
+
   Future<Widget> _buildUserLocationMarker() async {
     final userService = UserService();
     try {
@@ -433,34 +437,6 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
                   ],
                 ),
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Text('Yakınlık (km):'),
-                            Expanded(
-                              child: Slider(
-                                value: _radiusKm,
-                                min: 1.0,
-                                max: 10.0,
-                                divisions: 9,
-                                label: _radiusKm.toStringAsFixed(1),
-                                onChanged: (value) {
-                                  setState(() {
-                                    _radiusKm = value;
-                                  });
-                                },
-                              ),
-                            ),
-                            Text('${_radiusKm.toStringAsFixed(1)} km'),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
                   ConstrainedBox(
                     constraints: BoxConstraints(
                       maxHeight: MediaQuery.of(context).size.height * 0.65,
@@ -500,22 +476,19 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
-                                    child: TextFormField(
+                                    child: DropdownButtonFormField<String>(
                                       decoration: const InputDecoration(labelText: 'Çalışma Saatleri', isDense: true),
-                                      onChanged: (v) => _workingHours = v.isEmpty ? null : v,
+                                      value: _workingHours,
+                                      items: const [
+                                        DropdownMenuItem(value: null, child: Text('Hepsi')),
+                                        DropdownMenuItem(value: '07:00-12:00', child: Text('07:00-12:00')),
+                                        DropdownMenuItem(value: '12:00-17:00', child: Text('12:00-17:00')),
+                                        DropdownMenuItem(value: '17:00-22:00', child: Text('17:00-22:00')),
+                                      ],
+                                      onChanged: (v) => setState(() => _workingHours = v),
                                     ),
                                   ),
                                 ],
-                              ),
-                              DropdownButtonFormField<bool>(
-                                decoration: const InputDecoration(labelText: 'Aktif mi?', isDense: true),
-                                items: const [
-                                  DropdownMenuItem(value: null, child: Text('Hepsi')),
-                                  DropdownMenuItem(value: true, child: Text('Aktif')),
-                                  DropdownMenuItem(value: false, child: Text('Pasif')),
-                                ],
-                                onChanged: (v) => _active = v,
-                                value: _active,
                               ),
                               Wrap(
                                 spacing: 8,
@@ -527,7 +500,7 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
                                       children: [
                                         Icon(_paymentMethodIcon(method), size: 16, color: selected ? Colors.white : Colors.black54),
                                         const SizedBox(width: 4),
-                                        Text(method, style: TextStyle(color: selected ? Colors.white : Colors.black87)),
+                                        Text(_paymentMethodLabel(method), style: TextStyle(color: selected ? Colors.white : Colors.black87)),
                                       ],
                                     ),
                                     selected: selected,
@@ -556,16 +529,6 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
                                     style: ElevatedButton.styleFrom(
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  OutlinedButton.icon(
-                                    onPressed: _getNearby,
-                                    icon: const Icon(Icons.location_on_outlined),
-                                    label: const Text('Yakındakiler'),
-                                    style: OutlinedButton.styleFrom(
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                                     ),
                                   ),
                                 ],
@@ -631,7 +594,6 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
                                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                           ),
                                         ),
-                                        _buildStatusChip(point.active),
                                       ],
                                     ),
                                     const SizedBox(height: 4),
@@ -656,18 +618,15 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
                                       children: [
                                         ...point.paymentMethods.map((m) => Padding(
                                           padding: const EdgeInsets.only(right: 6),
-                                          child: Icon(_paymentMethodIcon(m), size: 18, color: _paymentMethodIconColor(context, m)),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(_paymentMethodIcon(m), size: 18, color: _paymentMethodIconColor(context, m)),
+                                              const SizedBox(width: 4),
+                                              Text(_paymentMethodLabel(m), style: TextStyle(color: _paymentMethodIconColor(context, m))),
+                                            ],
+                                          ),
                                         )),
-                                      ],
-                                    ),
-                                    Row(
-                                      children: [
-                                        Icon(Icons.social_distance, size: 16, color: Colors.grey[600]),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          point.distance != null ? '${point.distance!.toStringAsFixed(2)} km' : '-',
-                                          style: const TextStyle(fontSize: 13),
-                                        ),
                                       ],
                                     ),
                                   ],
