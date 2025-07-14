@@ -219,6 +219,36 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
     }
   }
 
+  Color _paymentMethodSelectedColor(BuildContext context, String method) {
+    switch (method) {
+      case 'CASH':
+        return Colors.green;
+      case 'CREDIT_CARD':
+        return Colors.blue;
+      case 'DEBIT_CARD':
+        return Colors.redAccent.shade100;
+      case 'QR_CODE':
+        return Theme.of(context).primaryColor;
+      default:
+        return Theme.of(context).chipTheme.selectedColor ?? Colors.grey.shade200;
+    }
+  }
+
+  Color _paymentMethodIconColor(BuildContext context, String method) {
+    switch (method) {
+      case 'CASH':
+        return Colors.green;
+      case 'CREDIT_CARD':
+        return Colors.blue;
+      case 'DEBIT_CARD':
+        return Colors.redAccent.shade100;
+      case 'QR_CODE':
+        return Theme.of(context).primaryColor;
+      default:
+        return Colors.blueGrey;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -337,19 +367,23 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
                               Wrap(
                                 spacing: 8,
                                 children: _allPaymentMethods.map((method) {
+                                  final selected = _selectedPaymentMethods.contains(method);
                                   return FilterChip(
                                     label: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(_paymentMethodIcon(method), size: 16),
+                                        Icon(_paymentMethodIcon(method), size: 16, color: selected ? Colors.white : Colors.black54),
                                         const SizedBox(width: 4),
-                                        Text(method),
+                                        Text(method, style: TextStyle(color: selected ? Colors.white : Colors.black87)),
                                       ],
                                     ),
-                                    selected: _selectedPaymentMethods.contains(method),
-                                    onSelected: (selected) {
+                                    selected: selected,
+                                    selectedColor: _paymentMethodSelectedColor(context, method),
+                                    checkmarkColor: Colors.white,
+                                    showCheckmark: false,
+                                    onSelected: (isSelected) {
                                       setState(() {
-                                        if (selected) {
+                                        if (isSelected) {
                                           _selectedPaymentMethods.add(method);
                                         } else {
                                           _selectedPaymentMethods.remove(method);
@@ -469,7 +503,7 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
                                       children: [
                                         ...point.paymentMethods.map((m) => Padding(
                                           padding: const EdgeInsets.only(right: 6),
-                                          child: Icon(_paymentMethodIcon(m), size: 18, color: Colors.blueGrey),
+                                          child: Icon(_paymentMethodIcon(m), size: 18, color: _paymentMethodIconColor(context, m)),
                                         )),
                                       ],
                                     ),

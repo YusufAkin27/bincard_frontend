@@ -42,6 +42,21 @@ class _PaymentPointDetailScreenState extends State<PaymentPointDetailScreen> {
     }
   }
 
+  Color _paymentMethodChipColor(BuildContext context, String method) {
+    switch (method) {
+      case 'CASH':
+        return Colors.green;
+      case 'CREDIT_CARD':
+        return Colors.blue;
+      case 'DEBIT_CARD':
+        return Colors.redAccent.shade100;
+      case 'QR_CODE':
+        return Theme.of(context).primaryColor;
+      default:
+        return Colors.blueGrey;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -123,7 +138,7 @@ class _PaymentPointDetailScreenState extends State<PaymentPointDetailScreen> {
                     children: point.paymentMethods.map((m) => Chip(
                       avatar: Icon(_paymentMethodIcon(m), size: 18, color: Colors.white),
                       label: Text(m, style: const TextStyle(color: Colors.white)),
-                      backgroundColor: Colors.blueGrey,
+                      backgroundColor: _paymentMethodChipColor(context, m),
                     )).toList(),
                   ),
                   const SizedBox(height: 18),
