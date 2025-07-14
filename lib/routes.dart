@@ -14,6 +14,8 @@ import 'screens/notifications_screen.dart';
 import 'screens/news_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/news_detail_screen.dart';
+import 'screens/payment_points_screen.dart';
+import 'screens/payment_point_detail_screen.dart';
 
 // Otobüs ile ilgili ekranlar
 import 'screens/bus_routes_screen.dart';
@@ -76,6 +78,8 @@ class AppRoutes {
   static const String reportProblem = '/report-problem';
   static const String videoPlayer = '/video-player';
   static const String newsDetail = '/news-detail'; // Haber detay sayfası için route
+  static const String paymentPoints = '/payment-points';
+  static const String paymentPointDetail = '/payment-point-detail';
 
   // Önceki eski referanslar için geçici çözüm
   static const String webView = '/web-view';
@@ -112,6 +116,7 @@ class AppRoutes {
     feedback: (context) => const FeedbackScreen(),
     reportProblem: (context) => const ReportProblemScreen(),
     videoPlayer: (context) => const VideoPlayerScreen(),
+    paymentPoints: (context) => const PaymentPointsScreen(),
   };
 
   // Parametre gerektiren route'lar için generate metodu
@@ -236,6 +241,18 @@ class AppRoutes {
             builder: (context) => const NewsScreen(),
           );
         }
+
+      case paymentPointDetail:
+        final args = settings.arguments as Map<String, dynamic>?;
+        final paymentPointId = args?['id'] as int?;
+        if (paymentPointId == null) {
+          return MaterialPageRoute(
+            builder: (context) => const Scaffold(
+              body: Center(child: Text('Geçersiz ödeme noktası ID')),));
+        }
+        return MaterialPageRoute(
+          builder: (context) => PaymentPointDetailScreen(paymentPointId: paymentPointId!),
+        );
 
       default:
         // Tanımlanmamış bir route için 404 sayfası

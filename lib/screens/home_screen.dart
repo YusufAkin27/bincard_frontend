@@ -31,6 +31,7 @@ import '../models/news/news_priority.dart';
 import 'news_detail_screen.dart';
 import '../widgets/video_player_widget.dart';
 import 'news_detail_from_id_screen.dart';
+import 'payment_points_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -1047,10 +1048,10 @@ class _HomeScreenState extends State<HomeScreen>
       },
       {
         'icon': Icons.map,
-        'label': 'Harita',
+        'label': 'Ödeme Noktaları',
         'onTap': () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const MapScreen()),
+          MaterialPageRoute(builder: (context) => const PaymentPointsScreen()),
         ),
       },
     ];

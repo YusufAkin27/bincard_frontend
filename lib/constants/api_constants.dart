@@ -45,6 +45,15 @@ class ApiConstants {
   static String get newsLikedEndpoint => '/news/liked';
   static String newsDetailWithPlatformEndpoint(String newsId, {String platform = 'MOBILE'}) => '/news/$newsId?platform=$platform';
   
+  // Payment Point endpoints
+  static String get paymentPointBase => '/payment-point';
+  static String paymentPointById(int id) => '/payment-point/$id';
+  static String get paymentPointSearch => '/payment-point/search';
+  static String get paymentPointNearby => '/payment-point/nearby';
+
+  // Google Maps API Key (örn. android için)
+  static const String googleMapsApiKey = 'YOUR_GOOGLE_MAPS_API_KEY';
+  
   // Content Type ve diğer header'lar
   static const String contentType = 'application/json';
   
