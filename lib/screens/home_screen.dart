@@ -32,6 +32,8 @@ import 'news_detail_screen.dart';
 import '../widgets/video_player_widget.dart';
 import 'news_detail_from_id_screen.dart';
 import 'payment_points_screen.dart';
+import 'package:provider/provider.dart';
+import '../services/fcm_token_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -231,6 +233,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    final fcmToken = Provider.of<FcmTokenService>(context).token;
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       body: SafeArea(

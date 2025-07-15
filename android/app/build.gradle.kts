@@ -3,6 +3,8 @@ plugins {
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")
+
 }
 
 android {
@@ -54,6 +56,7 @@ dependencies {
     // Core bağımlılıklarını uyumlu sürümlere düşür
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.core:core:1.12.0")
+    implementation("com.google.firebase:firebase-messaging:23.0.0")
 }
 
 flutter {

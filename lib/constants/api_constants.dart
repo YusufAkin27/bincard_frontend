@@ -1,7 +1,7 @@
 class ApiConstants {
   // Base URL for API requests
   // Updated API URL
-  static const String baseUrl = 'http://192.168.174.214:8080/v1/api';
+  static const String baseUrl = 'http://192.168.219.61:8080/v1/api';
   
   // Ortam değişkenleri
   static const Duration connectTimeout = Duration(seconds: 30);
@@ -32,6 +32,7 @@ class ApiConstants {
   static String get updateProfilePhotoEndpoint => '/user/profile/photo';  // PUT: Profil fotoğrafını güncelle
   static String get verifyPhoneEndpoint => '/user/verify-phone';
   static String get changePasswordEndpoint => '/user/password/change';
+  static String updateFcmTokenEndpoint(String fcmToken) => '/user/update-fcm-token?fcmToken=$fcmToken';
   
   // News endpoints
   static String get newsBaseEndpoint => '/news';

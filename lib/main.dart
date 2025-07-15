@@ -18,6 +18,9 @@ import 'package:app_links/app_links.dart';
 import 'screens/liked_news_screen.dart';
 import 'services/map_service.dart';
 import 'screens/privacy_settings_screen.dart';
+import 'services/notification_service.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'services/fcm_token_service.dart';
 
 // Global navigatorKey - token service gibi servislerden sayfalar arası geçiş için
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -73,6 +76,7 @@ String? getCurrentRoute() {
 void main() async {
   // Bağımlılıkların başlatılması için
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   
   // Durum çubuğunu ve sistem gezinti çubuğunu yapılandır
   SystemChrome.setSystemUIOverlayStyle(
@@ -132,6 +136,7 @@ void main() async {
         Provider<AuthService>.value(value: authService),
         Provider<ApiService>.value(value: apiService),
         Provider<UserService>(create: (_) => UserService()),
+        ChangeNotifierProvider<FcmTokenService>(create: (_) => FcmTokenService()),
       ],
       child: const MyApp(),
     ),
@@ -151,6 +156,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   Timer? _locationTimer;
   bool _locationPermissionGranted = false;
+  final NotificationService _notificationService = NotificationService();
 
   @override
   void initState() {
@@ -164,6 +170,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAndRequestLocationPermission(context, showMessage: true);
       _startPeriodicLocationSend(context);
+      // NotificationService().handleNotificationFlow(); // kaldırıldı
     });
   }
   

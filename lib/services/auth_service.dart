@@ -16,6 +16,9 @@ import 'package:flutter/widgets.dart';
 import '../main.dart'; // navigatorKey için import
 import '../constants/api_constants.dart';
 import '../routes.dart'; // AppRoutes için import
+import 'notification_service.dart';
+import 'fcm_token_service.dart';
+import 'package:provider/provider.dart';
 
 class AuthService {
   final ApiService _apiService = ApiService();
@@ -89,6 +92,16 @@ class AuthService {
         _apiService.setupTokenInterceptor();
         // Biyometrik izin sor
         await _askForBiometricPermission();
+        // FCM tokenı API'ye gönder
+        try {
+          final fcmTokenService = FcmTokenService();
+          final fcmToken = fcmTokenService.token;
+          if (fcmToken != null) {
+            await NotificationService().sendFcmTokenToApi(fcmToken);
+          }
+        } catch (e) {
+          debugPrint('Login sonrası FCM token gönderilemedi: $e');
+        }
         return tokenResponse;
       } else {
         final message = response.data?['message'] ?? 'Giriş başarısız oldu.';
