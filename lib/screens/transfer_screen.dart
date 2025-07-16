@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../constants/api_constants.dart';
 import '../services/secure_storage_service.dart';
 import 'package:dio/dio.dart';
+import '../routes.dart';
 
 class TransferScreen extends StatefulWidget {
   const TransferScreen({super.key});
@@ -603,7 +604,7 @@ class _TransferScreenState extends State<TransferScreen>
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              Navigator.pop(context);
+              Navigator.pushNamedAndRemoveUntil(context, AppRoutes.home, (route) => false);
             },
             child: const Text('Tamam'),
           ),

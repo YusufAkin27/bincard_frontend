@@ -9,6 +9,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:flutter/material.dart';
 import '../services/secure_storage_service.dart';
 import 'package:dio/dio.dart';
+import '../routes.dart';
 
 class AddBalanceScreen extends StatefulWidget {
   const AddBalanceScreen({super.key});
@@ -18,10 +19,9 @@ class AddBalanceScreen extends StatefulWidget {
 }
 
 class _AddBalanceStep {
-  static const int walletInfo = 0;
-  static const int amount = 1;
-  static const int paymentMethod = 2;
-  static const int cardInfo = 3;
+  static const int amount = 0;
+  static const int paymentMethod = 1;
+  static const int cardInfo = 2;
 }
 
 class _AddBalanceScreenState extends State<AddBalanceScreen> {
@@ -43,6 +43,10 @@ class _AddBalanceScreenState extends State<AddBalanceScreen> {
   int _currentStep = 0;
   bool _isLoading = false;
 
+  // Tam ve küsurat için controllerlar
+  final TextEditingController _amountWholeController = TextEditingController();
+  final TextEditingController _amountFractionController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -62,6 +66,8 @@ class _AddBalanceScreenState extends State<AddBalanceScreen> {
   @override
   void dispose() {
     _amountController.dispose();
+    _amountWholeController.dispose();
+    _amountFractionController.dispose();
     _cardNumberController.dispose();
     _cardHolderController.dispose();
     _cardExpiryController.dispose();
@@ -78,7 +84,7 @@ class _AddBalanceScreenState extends State<AddBalanceScreen> {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: AppTheme.primaryColor),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.pushNamedAndRemoveUntil(context, AppRoutes.home, (route) => false),
         ),
         title: Text(
           'Bakiye Yükle',
@@ -89,58 +95,112 @@ class _AddBalanceScreenState extends State<AddBalanceScreen> {
         ),
         centerTitle: true,
       ),
-      body: Form(
-        key: _formKey,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildStepContent(),
-              const Spacer(),
-              _buildStepNavigation(),
-              if (_isLoading)
-                const Center(child: CircularProgressIndicator()),
-              if (_isNfcReading)
-                Container(
-                  margin: const EdgeInsets.only(top: 16),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.primaryColor),
-                  ),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            AppTheme.primaryColor,
+      floatingActionButton: Stack(
+        children: [
+          // Sağ alt ileri/onayla butonu
+          Positioned(
+            bottom: 16,
+            right: 16,
+            child: FloatingActionButton.extended(
+              onPressed: () {
+                if (_currentStep < 2) {
+                  setState(() {
+                    _currentStep++;
+                  });
+                } else if (_currentStep == 2 && !_isLoading) {
+                  _handleTopUp();
+                }
+              },
+              label: Text(_currentStep < 2 ? 'İleri' : 'Onayla'),
+              icon: Icon(Icons.arrow_forward),
+              backgroundColor: AppTheme.primaryColor,
+            ),
+          ),
+          // Sol alt geri butonu
+          Positioned(
+            bottom: 16,
+            left: 42,
+            child: FloatingActionButton.extended(
+              onPressed: () {
+                if (_currentStep == 0) {
+                  Navigator.pushNamedAndRemoveUntil(context, AppRoutes.home, (route) => false);
+                } else {
+                  setState(() {
+                    _currentStep--;
+                  });
+                }
+              },
+              label: const Text('Geri'),
+              icon: const Icon(Icons.arrow_back),
+              backgroundColor: Colors.white,
+              foregroundColor: AppTheme.primaryColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+                side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.5)),
+              ),
+              elevation: 2,
+            ),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 16,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildStepContent(),
+                const SizedBox(height: 24),
+                if (_isLoading)
+                  const Center(child: CircularProgressIndicator()),
+                if (_isNfcReading)
+                  Container(
+                    margin: const EdgeInsets.only(top: 16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppTheme.primaryColor),
+                    ),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              AppTheme.primaryColor,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Text(
-                          'Kredi kartınızı telefonun arkasına yaklaştırın...',
-                          style: TextStyle(
-                            color: AppTheme.primaryColor,
-                            fontWeight: FontWeight.w500,
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Text(
+                            'Kredi kartınızı telefonun arkasına yaklaştırın...',
+                            style: TextStyle(
+                              color: AppTheme.primaryColor,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        color: AppTheme.primaryColor,
-                        onPressed: _cancelNfcReading,
-                      ),
-                    ],
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          color: AppTheme.primaryColor,
+                          onPressed: _cancelNfcReading,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -149,25 +209,123 @@ class _AddBalanceScreenState extends State<AddBalanceScreen> {
 
   Widget _buildStepContent() {
     switch (_currentStep) {
-      case _AddBalanceStep.walletInfo:
-        return _buildWalletInfoStep();
       case _AddBalanceStep.amount:
         return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            _buildSectionTitle('Yüklenecek Tutar'),
+            // Özel tutar alanı üstte, ortalanmış ve spacing ile
             const SizedBox(height: 12),
-            _buildPredefinedAmounts(),
-            const SizedBox(height: 16),
-            _buildCustomAmountField(),
+            Center(child: _buildCustomAmountField()),
+            const SizedBox(height: 24),
+            // Modern başlık ve açıklama
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Text(
+                'Yüklenecek Tutarı Seç',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 20.0),
+              child: Text(
+                'Hazır tutarlardan birini seçebilir veya yukarıdan özel tutar girebilirsin.',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: AppTheme.textSecondaryColor,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            // Modern hazır tutar kartları alt alta
+            ListView.separated(
+              shrinkWrap: true,
+              physics: NeverScrollableScrollPhysics(),
+              itemCount: _predefinedAmounts.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 16),
+              itemBuilder: (context, index) {
+                final bool isSelected = index == _selectedAmountIndex;
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedAmountIndex = index;
+                      _amountWholeController.text = _predefinedAmounts[index].toInt().toString();
+                      _amountFractionController.text = (_predefinedAmounts[index] % 1 * 100).toInt().toString().padLeft(2, '0');
+                      _updateAmountController();
+                    });
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: isSelected ? AppTheme.primaryColor : Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        if (isSelected)
+                          BoxShadow(
+                            color: AppTheme.primaryColor.withOpacity(0.18),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        if (!isSelected)
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                      ],
+                      border: Border.all(
+                        color: AppTheme.primaryColor.withOpacity(0.5),
+                        width: 2,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          _predefinedAmounts[index].toStringAsFixed(0),
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: isSelected ? Colors.white : AppTheme.primaryColor,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'TL',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: isSelected ? Colors.white70 : AppTheme.textSecondaryColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
           ],
         );
       case _AddBalanceStep.paymentMethod:
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSectionTitle('Ödeme Yöntemi'),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0, bottom: 20.0),
+              child: Text(
+                'Ödeme Yöntemi',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+            ),
             _buildPaymentMethodSelection(onlyCard: true),
           ],
         );
@@ -176,107 +334,6 @@ class _AddBalanceScreenState extends State<AddBalanceScreen> {
       default:
         return const SizedBox.shrink();
     }
-  }
-
-  Widget _buildWalletInfoStep() {
-    // Burada gerçek cüzdan bakiyesi ve aktiflik gösterilecek (örnek statik)
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.account_balance_wallet_rounded, color: AppTheme.primaryColor, size: 32),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Cüzdan Bakiyesi',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimaryColor,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '603.00 ₺', // Burada gerçek bakiye gösterilecek
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.primaryColor,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.green,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Aktif',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.green,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStepNavigation() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        if (_currentStep > 0)
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                _currentStep--;
-              });
-            },
-            child: const Text('Geri'),
-          ),
-        if (_currentStep < 3)
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                _currentStep++;
-              });
-            },
-            child: const Text('İleri'),
-          ),
-        if (_currentStep == 3)
-          ElevatedButton(
-            onPressed: _isLoading ? null : _handleTopUp,
-            child: const Text('Onayla'),
-          ),
-      ],
-    );
   }
 
   Widget _buildPaymentMethodSelection({bool onlyCard = false}) {
@@ -476,70 +533,122 @@ class _AddBalanceScreenState extends State<AddBalanceScreen> {
   }
 
   Widget _buildCustomAmountField() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: TextFormField(
-        controller: _amountController,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        decoration: InputDecoration(
-          labelText: 'Özel Tutar',
-          suffixText: '₺',
-          suffixStyle: TextStyle(
-            color: AppTheme.textPrimaryColor,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-          prefixIcon: Icon(Icons.money, color: AppTheme.primaryColor),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none,
-          ),
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(
-            vertical: 16,
-            horizontal: 16,
+    final double maxInputWidth = MediaQuery.of(context).size.width * 0.5;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        // Tam kısım
+        ConstrainedBox(
+          constraints: BoxConstraints(minWidth: 80, maxWidth: maxInputWidth),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            reverse: true,
+            child: IntrinsicWidth(
+              child: TextFormField(
+                controller: _amountWholeController,
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.right,
+                style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold),
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  hintText: '0',
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
+                  fillColor: Colors.transparent,
+                  filled: false,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  errorBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                  counterText: '',
+                ),
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(6),
+                ],
+                maxLength: 6,
+                scrollPadding: EdgeInsets.zero,
+                enableInteractiveSelection: true,
+                autofocus: false,
+                onTap: () {
+                  _amountWholeController.selection = TextSelection.fromPosition(
+                    TextPosition(offset: _amountWholeController.text.length),
+                  );
+                },
+                validator: (value) {
+                  if ((value == null || value.isEmpty) && (_amountFractionController.text.isEmpty)) {
+                    return 'Lütfen bir tutar girin';
+                  }
+                  return null;
+                },
+                onChanged: (value) {
+                  _updateAmountController();
+                },
+              ),
+            ),
           ),
         ),
-        inputFormatters: [
-          FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
-        ],
-        validator: (value) {
-          if (value == null || value.isEmpty) {
-            return 'Lütfen bir tutar girin';
-          }
-          try {
-            double amount = double.parse(value);
-            if (amount <= 0) {
-              return 'Tutar 0\'dan büyük olmalıdır';
-            }
-            if (amount > 1000) {
-              return 'Tek seferde en fazla 1000₺ yükleyebilirsiniz';
-            }
-          } catch (e) {
-            return 'Geçerli bir tutar girin';
-          }
-          return null;
-        },
-        onChanged: (value) {
-          if (value.isNotEmpty) {
-            setState(() {
-              _selectedAmountIndex = -1;
-            });
-          }
-        },
-      ),
+        // Virgül
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(',', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+        ),
+        // Küsurat
+        SizedBox(
+          width: 40,
+          child: TextFormField(
+            controller: _amountFractionController,
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.left,
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              hintText: '00',
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+              fillColor: Colors.transparent,
+              filled: false,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              errorBorder: InputBorder.none,
+              disabledBorder: InputBorder.none,
+            ),
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(2),
+            ],
+            validator: (value) {
+              if (value != null && value.isNotEmpty && int.tryParse(value) == null) {
+                return 'Geçerli bir kuruş girin';
+              }
+              return null;
+            },
+            onChanged: (value) {
+              _updateAmountController();
+            },
+          ),
+        ),
+        // TL
+        Padding(
+          padding: const EdgeInsets.only(left: 8, bottom: 8),
+          child: Text('TL', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500)),
+        ),
+      ],
     );
+  }
+
+  void _updateAmountController() {
+    final whole = _amountWholeController.text;
+    final fraction = _amountFractionController.text;
+    String value = whole;
+    if (fraction.isNotEmpty) {
+      value += "," + fraction.padRight(2, '0');
+    }
+    _amountController.text = value;
+    setState(() {
+      _selectedAmountIndex = -1;
+    });
   }
 
   Widget _buildPaymentMethodItem({
@@ -942,7 +1051,7 @@ class _AddBalanceScreenState extends State<AddBalanceScreen> {
               TextButton(
                 onPressed: () {
                   Navigator.pop(context); // Diyaloğu kapat
-                  Navigator.pop(context); // Ekranı kapat
+                  Navigator.pushNamedAndRemoveUntil(context, AppRoutes.home, (route) => false); // Ana sayfaya yönlendir
                 },
                 child: const Text('Tamam'),
               ),
@@ -980,8 +1089,32 @@ class _AddBalanceScreenState extends State<AddBalanceScreen> {
       if (response.data['success'] == true && response.data['data'] != null) {
         final html = response.data['data'];
         if (mounted) {
-          final controller = WebViewController()
+          late final WebViewController controller;
+          controller = WebViewController()
             ..setJavaScriptMode(JavaScriptMode.unrestricted)
+            ..setNavigationDelegate(NavigationDelegate(
+              onNavigationRequest: (navigation) {
+                final url = navigation.url.toLowerCase();
+                if (url.contains('success')) {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                  Navigator.pushNamedAndRemoveUntil(context, AppRoutes.home, (route) => false);
+                  return NavigationDecision.prevent;
+                }
+                return NavigationDecision.navigate;
+              },
+              onPageFinished: (url) async {
+                try {
+                  final html = await controller.runJavaScriptReturningResult(
+                    "document.body.innerText || document.body.textContent"
+                  );
+                  if (html != null && html.toString().contains('Yükleme başarılı')) {
+                    await Future.delayed(const Duration(seconds: 1));
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                    Navigator.pushNamedAndRemoveUntil(context, AppRoutes.home, (route) => false);
+                  }
+                } catch (_) {}
+              },
+            ))
             ..loadHtmlString(html);
           Navigator.push(
             context,

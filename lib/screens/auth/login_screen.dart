@@ -11,6 +11,7 @@ import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import '../../services/secure_storage_service.dart';
 import '../../routes.dart';
 import '../../widgets/safe_screen.dart';
+import '../../services/notification_service.dart';
 
 // SharedPreferences anahtarlarını sabit olarak tanımlayalım
 const String kSavedPhoneKey = 'saved_phone';
@@ -238,7 +239,13 @@ class _LoginScreenState extends State<LoginScreen>
         debugPrint('Normal giriş işlemi başlatılıyor. Telefon: $phoneNumber');
         try {
           final response = await _authService.login(phoneNumber, password);
-          debugPrint('Giriş yanıtı alındı: accessToken=${response.accessToken.token}');
+          debugPrint('Giriş yanıtı alındı: accessToken= [200~ {response.accessToken.token}');
+          // Başarılı giriş - bildirim izni iste
+          try {
+            await NotificationService().handleNotificationFlow();
+          } catch (e) {
+            debugPrint('Bildirim izni/FCM token işlemi sırasında hata: $e');
+          }
           // Başarılı giriş - ana sayfaya yönlendir
           debugPrint('Giriş başarılı, ana sayfaya yönlendiriliyor...');
           if (!mounted) return;
