@@ -65,6 +65,26 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
   void initState() {
     super.initState();
     _paymentPointsFuture = PaymentPointService().getAllPaymentPoints();
+    _setInitialUserLocation();
+  }
+
+  void _setInitialUserLocation() async {
+    final mapService = MapService();
+    final hasPermission = await mapService.checkLocationPermission();
+    if (!hasPermission) {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        // Konum servisi kapalıysa ayarları açmaya zorlama, sadece default göster
+        return;
+      }
+    }
+    final pos = await mapService.getCurrentLocation();
+    if (pos != null && mounted) {
+      setState(() {
+        _latitude = pos.latitude;
+        _longitude = pos.longitude;
+      });
+    }
   }
 
   void _search() async {
@@ -87,14 +107,16 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
     setState(() {
       _latitude = pos.latitude;
       _longitude = pos.longitude;
-      _radiusKm = 5.0;
-      _paymentPointsFuture = PaymentPointService().getNearbyPaymentPoints(
-        latitude: pos.latitude,
-        longitude: pos.longitude,
-        radiusKm: _radiusKm,
-        page: 0,
-        size: 10,
-      );
+      if (_name != null && _name!.isNotEmpty) {
+        _paymentPointsFuture = PaymentPointService().searchPaymentPoints(
+          query: _name!,
+          latitude: pos.latitude,
+          longitude: pos.longitude,
+          page: 0,
+        );
+      } else {
+        _paymentPointsFuture = PaymentPointService().getAllPaymentPoints();
+      }
     });
   }
 
@@ -354,6 +376,42 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
       ),
       body: Column(
         children: [
+          // --- YENİ: En üstte arama çubuğu ---
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    decoration: InputDecoration(
+                      hintText: 'Ödeme noktası ara...',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey.shade100,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+                    ),
+                    onChanged: (value) {
+                      _name = value.isEmpty ? null : value;
+                    },
+                    onSubmitted: (_) => _search(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: _search,
+                  style: ElevatedButton.styleFrom(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  ),
+                  child: const Icon(Icons.search),
+                ),
+              ],
+            ),
+          ),
           // Harita sabit
           SizedBox(
             height: 260,
@@ -449,47 +507,7 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
                           child: Wrap(
                             runSpacing: 8,
                             children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: TextFormField(
-                                      decoration: const InputDecoration(labelText: 'İsim', isDense: true),
-                                      onChanged: (v) => _name = v.isEmpty ? null : v,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: TextFormField(
-                                      decoration: const InputDecoration(labelText: 'Şehir', isDense: true),
-                                      onChanged: (v) => _city = v.isEmpty ? null : v,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: TextFormField(
-                                      decoration: const InputDecoration(labelText: 'İlçe', isDense: true),
-                                      onChanged: (v) => _district = v.isEmpty ? null : v,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: DropdownButtonFormField<String>(
-                                      decoration: const InputDecoration(labelText: 'Çalışma Saatleri', isDense: true),
-                                      value: _workingHours,
-                                      items: const [
-                                        DropdownMenuItem(value: null, child: Text('Hepsi')),
-                                        DropdownMenuItem(value: '07:00-12:00', child: Text('07:00-12:00')),
-                                        DropdownMenuItem(value: '12:00-17:00', child: Text('12:00-17:00')),
-                                        DropdownMenuItem(value: '17:00-22:00', child: Text('17:00-22:00')),
-                                      ],
-                                      onChanged: (v) => setState(() => _workingHours = v),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                              // Çalışma saatleri filtresi kaldırıldı
                               Wrap(
                                 spacing: 8,
                                 children: _allPaymentMethods.map((method) {

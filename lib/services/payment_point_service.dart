@@ -28,31 +28,17 @@ class PaymentPointService {
   }
 
   Future<List<PaymentPoint>> searchPaymentPoints({
-    double? latitude,
-    double? longitude,
-    double? radiusKm,
-    String? name,
-    String? city,
-    String? district,
-    List<String>? paymentMethods,
-    bool? active,
-    String? workingHours,
+    required String query,
+    required double latitude,
+    required double longitude,
+    int page = 0,
   }) async {
-    final Map<String, dynamic> body = {
-      if (latitude != null) 'latitude': latitude,
-      if (longitude != null) 'longitude': longitude,
-      if (radiusKm != null) 'radiusKm': radiusKm,
-      if (name != null) 'name': name,
-      if (city != null) 'city': city,
-      if (district != null) 'district': district,
-      if (paymentMethods != null) 'paymentMethods': paymentMethods,
-      if (active != null) 'active': active,
-      if (workingHours != null) 'workingHours': workingHours,
-    };
+    final url = baseUrl + ApiConstants.paymentPointSearch +
+        '?query=${Uri.encodeComponent(query)}&latitude=$latitude&longitude=$longitude&page=$page';
     final response = await http.post(
-      Uri.parse(baseUrl + ApiConstants.paymentPointSearch),
+      Uri.parse(url),
       headers: {'Content-Type': 'application/json'},
-      body: json.encode(body),
+      body: '{}', // Boş body
     );
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
