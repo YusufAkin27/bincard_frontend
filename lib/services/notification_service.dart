@@ -116,4 +116,64 @@ class NotificationService {
   }
 }
 
+  // Bildirimleri getir
+  Future<Response> getNotifications({String type = 'SUCCESS', int page = 0, int size = 10}) async {
+    final dio = Dio();
+    final accessToken = await SecureStorageService().getAccessToken();
+    final url = '${ApiConstants.baseUrl}${ApiConstants.notifications}?type=$type&page=$page&size=$size';
+    return await dio.get(
+      url,
+      options: Options(
+        headers: {
+          'Authorization': 'Bearer $accessToken',
+        },
+      ),
+    );
+  }
+
+  // Bildirim detayını getir
+  Future<Response> getNotificationDetail(int id) async {
+    final dio = Dio();
+    final accessToken = await SecureStorageService().getAccessToken();
+    final url = '${ApiConstants.baseUrl}${ApiConstants.notificationDetail(id)}';
+    return await dio.get(
+      url,
+      options: Options(
+        headers: {
+          'Authorization': 'Bearer $accessToken',
+        },
+      ),
+    );
+  }
+
+  // Bildirimi sil
+  Future<Response> deleteNotification(int id) async {
+    final dio = Dio();
+    final accessToken = await SecureStorageService().getAccessToken();
+    final url = '${ApiConstants.baseUrl}${ApiConstants.notificationDetail(id)}';
+    return await dio.delete(
+      url,
+      options: Options(
+        headers: {
+          'Authorization': 'Bearer $accessToken',
+        },
+      ),
+    );
+  }
+
+  // Bildirim sayısını getir
+  Future<Response> getNotificationCount() async {
+    final dio = Dio();
+    final accessToken = await SecureStorageService().getAccessToken();
+    final url = '${ApiConstants.baseUrl}${ApiConstants.notificationCount}';
+    return await dio.get(
+      url,
+      options: Options(
+        headers: {
+          'Authorization': 'Bearer $accessToken',
+        },
+      ),
+    );
+  }
+
 } 

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import '../services/notification_service.dart';
+import 'package:dio/dio.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -14,65 +16,71 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   late TabController _tabController;
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
-  int _currentPage = 1;
+  int _currentPage = 0;
   final int _itemsPerPage = 10;
 
-  // Demo bildirimler
-  final List<Map<String, dynamic>> _allNotifications = [];
+  List<Map<String, dynamic>> _allNotifications = [];
   List<Map<String, dynamic>> _displayedNotifications = [];
 
   // Bildirim türleri
   final Map<String, IconData> _notificationIcons = {
     'info': Icons.info_outline,
-    'transaction': Icons.payment,
-    'promo': Icons.local_offer_outlined,
-    'warning': Icons.warning_amber_outlined,
     'success': Icons.check_circle_outline,
+    'warning': Icons.warning_amber_outlined,
+    'error': Icons.error_outline,
+    'system': Icons.settings,
+    'announcement': Icons.campaign_outlined,
+    'campaign': Icons.campaign,
+    'promotion': Icons.local_offer_outlined,
+    'alert': Icons.notification_important_outlined,
+    'event': Icons.event,
   };
 
   final Map<String, Color> _notificationColors = {
     'info': Colors.blue,
-    'transaction': Colors.green,
-    'promo': Colors.purple,
-    'warning': Colors.orange,
     'success': Colors.teal,
+    'warning': Colors.orange,
+    'error': Colors.red,
+    'system': Colors.grey,
+    'announcement': Colors.indigo,
+    'campaign': Colors.purple,
+    'promotion': Colors.pink,
+    'alert': Colors.deepOrange,
+    'event': Colors.green,
   };
 
   final Map<String, String> _tabTitles = {
     'all': 'Tümü',
-    'transaction': 'İşlemler',
-    'promo': 'Kampanyalar',
-    'info': 'Duyurular',
+    'success': 'Başarılar',
+    'info': 'Bilgilendirme',
+    'warning': 'Uyarılar',
+    'error': 'Hatalar',
+    'system': 'Sistem',
+    'announcement': 'Duyurular',
+    'campaign': 'Kampanyalar',
+    'promotion': 'Tanıtımlar',
+    'alert': 'Acil',
+    'event': 'Etkinlikler',
   };
+
+  // TabBar'da gösterilecek sekmeler (örnek: Tümü, Başarılar, Uyarılar, Duyurular)
+  final List<String> _tabs = [
+    'all', 'success', 'info', 'warning', 'error', 'announcement', 'campaign', 'promotion', 'alert', 'event'
+  ];
 
   String _currentTab = 'all';
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
-    _generateDemoNotifications();
-    _loadInitialData();
+    _tabController = TabController(length: _tabs.length, vsync: this);
+    _fetchNotifications();
 
     _tabController.addListener(() {
       if (_tabController.indexIsChanging) return;
-
       setState(() {
-        switch (_tabController.index) {
-          case 0:
-            _currentTab = 'all';
-            break;
-          case 1:
-            _currentTab = 'transaction';
-            break;
-          case 2:
-            _currentTab = 'promo';
-            break;
-          case 3:
-            _currentTab = 'info';
-            break;
-        }
-        _loadInitialData();
+        _currentTab = _tabs[_tabController.index];
+        _fetchNotifications();
       });
     });
 
@@ -83,7 +91,6 @@ class _NotificationsScreenState extends State<NotificationsScreen>
       }
     });
 
-    // Türkçe çeviriler için timeago'yu yapılandır
     timeago.setLocaleMessages('tr', timeago.TrMessages());
   }
 
@@ -94,136 +101,53 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     super.dispose();
   }
 
-  void _generateDemoNotifications() {
-    // Demo bildirimler oluştur - gerçek uygulamada silinecek
-    final List<Map<String, dynamic>> templates = [
-      {
-        'type': 'transaction',
-        'title': 'Bakiye Güncelleme',
-        'messages': [
-          'Kartınıza 50₺ bakiye yükleme işlemi gerçekleştirildi.',
-          'Kartınızdan otobüs geçişi için 7,5₺ ücret tahsil edildi.',
-          'Kartınızdan metro geçişi için 7,5₺ ücret tahsil edildi.',
-          'Kartınıza 100₺ bakiye yükleme işlemi gerçekleştirildi.',
-          'Otomatik yükleme ile kartınıza 20₺ bakiye eklendi.',
-        ],
-      },
-      {
-        'type': 'promo',
-        'title': 'Kampanya',
-        'messages': [
-          'Hafta sonu metroda %10 indirim fırsatını kaçırmayın!',
-          'Yeni kullanıcıya özel: İlk yüklemede %15 bonus!',
-          'Şehir Hatları Vapurlarında 3 al 2 öde kampanyası başladı.',
-          'Öğrencilere özel: Aylık abonelik %20 indirimli!',
-          'Bu ay içinde 50 kez kart kullanımına özel 15₺ bonus!',
-        ],
-      },
-      {
-        'type': 'info',
-        'title': 'Bilgilendirme',
-        'messages': [
-          'Şehir kartı sistemi güncellendi. Yeni özellikler eklendi.',
-          'Metro seferlerinde geçici değişiklik yapılmıştır. Detaylar için tıklayın.',
-          'Kart kullanım koşulları güncellenmiştir. İncelemek için tıklayın.',
-          'Uygulamanın yeni sürümü yayınlandı. Güncelleyin!',
-          'Havaalanı otobüsleri için yeni hat açıldı.',
-        ],
-      },
-      {
-        'type': 'warning',
-        'title': 'Uyarı',
-        'messages': [
-          'Kartınızın bakiyesi 10₺\'nin altına düştü. Lütfen yükleme yapın.',
-          'Kartınızın kullanım süresi 30 gün içinde dolacak.',
-          'Kart işlemlerinizde olağandışı aktivite tespit edildi.',
-          'Şifreniz 3 ay içinde güncellenmedi. Lütfen şifrenizi değiştirin.',
-          'Bugün için planlanan bakım nedeniyle sistem geçici olarak yavaşlayabilir.',
-        ],
-      },
-      {
-        'type': 'success',
-        'title': 'Başarılı İşlem',
-        'messages': [
-          'Kart yenileme talebiniz onaylandı. Kartınız hazırlanıyor.',
-          'Abonelik işleminiz başarıyla tamamlandı.',
-          'Otomatik yükleme talimatınız başarıyla oluşturuldu.',
-          'İade talebiniz onaylandı. 3 iş günü içinde hesabınıza aktarılacaktır.',
-          'Kart bilgileriniz başarıyla güncellendi.',
-        ],
-      },
-    ];
-
-    // Son 30 gün için rastgele bildirimler oluştur
-    final now = DateTime.now();
-    for (int i = 0; i < 50; i++) {
-      final daysAgo = i ~/ 2; // Her iki bildirimi bir gün önceye ayarla
-      final randomMinutes = (i * 17) % 60;
-      final randomHour = (i * 3) % 24;
-
-      final notificationDate = now.subtract(
-        Duration(days: daysAgo, hours: randomHour, minutes: randomMinutes),
-      );
-
-      final templateIndex = i % templates.length;
-      final template = templates[templateIndex];
-      final messageIndex = i % template['messages'].length;
-
-      _allNotifications.add({
-        'id': i,
-        'type': template['type'],
-        'title': template['title'],
-        'message': template['messages'][messageIndex],
-        'date': notificationDate,
-        'isRead': daysAgo > 3, // 3 günden eski bildirimler okunmuş olsun
+  Future<void> _fetchNotifications({bool append = false}) async {
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      final service = NotificationService();
+      String type = _currentTab == 'all' ? '' : _currentTab.toUpperCase();
+      final response = await service.getNotifications(type: type, page: _currentPage, size: _itemsPerPage);
+      final data = response.data;
+      debugPrint('API response: ' + data.toString());
+      final List content = data['content'] ?? [];
+      final List<Map<String, dynamic>> notifications = content.map((e) {
+        final map = Map<String, dynamic>.from(e);
+        // type: enumdan stringe çevir, küçük harfe
+        map['type'] = (map['type'] ?? '').toString().toLowerCase();
+        map['isRead'] = map['read'] ?? false;
+        map['date'] = map['sentAt'] != null ? DateTime.tryParse(map['sentAt']) : DateTime.now();
+        return map;
+      }).toList();
+      debugPrint('Processed notifications: ' + notifications.toString());
+      setState(() {
+        if (append) {
+          _allNotifications.addAll(notifications);
+        } else {
+          _allNotifications = notifications;
+        }
+        _displayedNotifications = _currentTab == 'all'
+          ? _allNotifications
+          : _allNotifications.where((n) => n['type'] == _currentTab).toList();
+        debugPrint('Displayed notifications: ' + _displayedNotifications.toString());
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Notification fetch error: ' + e.toString());
+      setState(() {
+        _isLoading = false;
       });
     }
-
-    // Tarihe göre sırala (en yeni en üstte)
-    _allNotifications.sort((a, b) => b['date'].compareTo(a['date']));
-  }
-
-  void _loadInitialData() {
-    setState(() {
-      _currentPage = 1;
-      _applyFilter();
-    });
   }
 
   void _loadMoreData() {
     if (_isLoading) return;
-
     setState(() {
       _isLoading = true;
+      _currentPage++;
     });
-
-    // API çağrısını simüle et
-    Future.delayed(const Duration(milliseconds: 800), () {
-      if (mounted) {
-        setState(() {
-          _currentPage++;
-          _applyFilter();
-          _isLoading = false;
-        });
-      }
-    });
-  }
-
-  void _applyFilter() {
-    final filteredList =
-        _currentTab == 'all'
-            ? _allNotifications
-            : _allNotifications
-                .where((notification) => notification['type'] == _currentTab)
-                .toList();
-
-    final endIndex = _currentPage * _itemsPerPage;
-
-    if (endIndex <= filteredList.length) {
-      _displayedNotifications = filteredList.sublist(0, endIndex);
-    } else {
-      _displayedNotifications = filteredList;
-    }
+    _fetchNotifications(append: true);
   }
 
   void _markAllAsRead() {
@@ -273,33 +197,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
           unselectedLabelColor: AppTheme.textSecondaryColor,
           labelStyle: const TextStyle(fontWeight: FontWeight.bold),
           isScrollable: true,
-          tabs: [
-            _buildTabWithBadge('Tümü', _currentTab == 'all' ? unreadCount : 0),
-            _buildTabWithBadge(
-              'İşlemler',
-              _currentTab == 'all'
-                  ? _allNotifications
-                      .where((n) => !n['isRead'] && n['type'] == 'transaction')
-                      .length
-                  : 0,
-            ),
-            _buildTabWithBadge(
-              'Kampanyalar',
-              _currentTab == 'all'
-                  ? _allNotifications
-                      .where((n) => !n['isRead'] && n['type'] == 'promo')
-                      .length
-                  : 0,
-            ),
-            _buildTabWithBadge(
-              'Duyurular',
-              _currentTab == 'all'
-                  ? _allNotifications
-                      .where((n) => !n['isRead'] && n['type'] == 'info')
-                      .length
-                  : 0,
-            ),
-          ],
+          tabs: _tabs.map((tab) => _buildTabWithBadge(_tabTitles[tab] ?? tab, _currentTab == tab ? unreadCount : 0)).toList(),
         ),
       ),
       body:
@@ -465,134 +363,48 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     );
   }
 
-  void _showNotificationDetails(Map<String, dynamic> notification) {
-    final type = notification['type'];
-    final color = _notificationColors[type] ?? Colors.grey;
-    final icon = _notificationIcons[type] ?? Icons.notifications_none;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder:
-          (context) => Container(
-            padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
-              ),
+  void _showNotificationDetails(Map<String, dynamic> notification) async {
+    final service = NotificationService();
+    try {
+      final response = await service.getNotificationDetail(notification['id']);
+      final detail = response.data;
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(detail['title'] ?? ''),
+          content: Text(detail['message'] ?? ''),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Kapat'),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 24),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(icon, color: color, size: 24),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            notification['title'],
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textPrimaryColor,
-                              fontSize: 18,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            timeago.format(notification['date'], locale: 'tr'),
-                            style: TextStyle(
-                              color: AppTheme.textSecondaryColor.withOpacity(
-                                0.7,
-                              ),
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                const Divider(),
-                const SizedBox(height: 16),
-                Text(
-                  notification['message'],
-                  style: TextStyle(
-                    color: AppTheme.textPrimaryColor,
-                    fontSize: 16,
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                if (notification['type'] == 'transaction' ||
-                    notification['type'] == 'success') ...[
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      // İşlem detaylarına yönlendir
-                    },
-                    icon: const Icon(Icons.visibility),
-                    label: const Text('Detayları Görüntüle'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 12,
-                        horizontal: 24,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      foregroundColor: AppTheme.primaryColor,
-                      side: BorderSide(color: AppTheme.primaryColor),
-                    ),
-                  ),
-                ] else if (notification['type'] == 'promo') ...[
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      // Kampanya detaylarına yönlendir
-                    },
-                    icon: const Icon(Icons.card_giftcard),
-                    label: const Text('Kampanyaya Git'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 12,
-                        horizontal: 24,
-                      ),
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 8),
-              ],
+            TextButton(
+              onPressed: () async {
+                await service.deleteNotification(notification['id']);
+                Navigator.pop(context);
+                _fetchNotifications();
+              },
+              child: const Text('Sil'),
             ),
-          ),
-    );
+          ],
+        ),
+      );
+    } catch (e) {
+      // Hata durumunda basit bir dialog göster
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Hata'),
+          content: Text('Bildirim detayı alınamadı.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Kapat'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   Widget _buildLoadingIndicator() {

@@ -214,7 +214,13 @@ class _SearchScreenState extends State<SearchScreen>
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         backgroundColor: AppTheme.primaryColor,
-        title: _isSearching ? _buildSearchField() : const Text('Arama'),
+        leading: BackButton(color: Colors.white),
+        title: _isSearching 
+            ? _buildSearchField() 
+            : const Text(
+                'Arama',
+                style: TextStyle(color: Colors.white),
+              ),
         elevation: 0,
         actions: [
           IconButton(
@@ -235,6 +241,8 @@ class _SearchScreenState extends State<SearchScreen>
           isScrollable: true,
           indicatorColor: Colors.white,
           indicatorWeight: 3,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white,
           tabs: _categories.map((category) => Tab(text: category)).toList(),
         ),
       ),

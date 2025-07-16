@@ -95,4 +95,8 @@ class ApiConstants {
     final query = params.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&');
     return '/wallet/activities?$query';
   }
+
+  static String get notifications => '/notifications';
+  static String notificationDetail(int id) => '/notifications/$id';
+  static String get notificationCount => '/notifications/count';
 }
