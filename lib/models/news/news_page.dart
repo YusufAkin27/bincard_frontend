@@ -47,4 +47,16 @@ class NewsPage {
       isLast: true,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'content': content.map((e) => e.toJson()).toList(),
+      'pageNumber': pageNumber,
+      'pageSize': pageSize,
+      'totalElements': totalElements,
+      'totalPages': totalPages,
+      'first': isFirst,
+      'last': isLast,
+    };
+  }
 }

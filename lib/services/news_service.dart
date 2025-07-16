@@ -9,6 +9,8 @@ import '../models/news/news_history_dto.dart';
 import '../models/news/news_page.dart';
 import 'api_service.dart';
 import 'secure_storage_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class NewsService {
   final ApiService _apiService;
@@ -370,5 +372,50 @@ class NewsService {
       debugPrint('Beğenilen haberleri getirme hatası: $e');
       return [];
     }
+  }
+
+  // Get active news with cache
+  Future<NewsPage> getActiveNewsWithCache({PlatformType? platform, NewsType? type, int page = 0, int size = 20}) async {
+    final cacheKey = _buildCacheKey(platform, type, page, size);
+    NewsPage? cachedNews;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedJson = prefs.getString(cacheKey);
+      if (cachedJson != null) {
+        final cachedMap = jsonDecode(cachedJson);
+        cachedNews = NewsPage.fromJson(cachedMap);
+      }
+    } catch (e) {
+      debugPrint('Haber cache okunamadı: $e');
+    }
+
+    // Arka planda güncelleme başlat
+    _getAndCacheActiveNews(platform: platform, type: type, page: page, size: size, cacheKey: cacheKey);
+
+    // Eğer cache varsa hemen dön, yoksa normal API'dan çek
+    if (cachedNews != null) {
+      return cachedNews;
+    } else {
+      return await getActiveNews(platform: platform, type: type, page: page, size: size);
+    }
+  }
+
+  // Arka planda API'dan çekip cache'e yazan fonksiyon
+  Future<void> _getAndCacheActiveNews({PlatformType? platform, NewsType? type, int page = 0, int size = 20, required String cacheKey}) async {
+    final newsPage = await getActiveNews(platform: platform, type: type, page: page, size: size);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonStr = jsonEncode(newsPage.toJson());
+      await prefs.setString(cacheKey, jsonStr);
+    } catch (e) {
+      debugPrint('Haber cache yazılamadı: $e');
+    }
+  }
+
+  // Cache anahtarı oluşturucu
+  String _buildCacheKey(PlatformType? platform, NewsType? type, int page, int size) {
+    final platformStr = (platform ?? PlatformType.MOBILE).toString();
+    final typeStr = type?.toString() ?? '';
+    return 'news_cache_${platformStr}_$typeStr",$page,$size';
   }
 }

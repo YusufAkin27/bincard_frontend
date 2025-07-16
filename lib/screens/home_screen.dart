@@ -132,7 +132,7 @@ class _HomeScreenState extends State<HomeScreen>
       apiService.setupTokenInterceptor();
       
       final newsService = NewsService(apiService: apiService);
-      final newsPage = await newsService.getActiveNews(
+      final newsPage = await newsService.getActiveNewsWithCache(
         platform: PlatformType.MOBILE,
         page: _currentPage,
         size: 2,
