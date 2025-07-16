@@ -36,6 +36,7 @@ import 'news_detail_from_id_screen.dart';
 import 'payment_points_screen.dart';
 import 'package:provider/provider.dart';
 import '../services/fcm_token_service.dart';
+import 'package:shimmer/shimmer.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -533,7 +534,20 @@ class _HomeScreenState extends State<HomeScreen>
   // Balance summary section - Modern and elegant design
   Widget _buildBalanceSummary() {
     if (_isWalletLoading) {
-      return const Center(child: CircularProgressIndicator());
+      // Shimmer efekti ile cüzdan yükleniyor göstergesi
+      return Shimmer.fromColors(
+        baseColor: Colors.grey[300]!,
+        highlightColor: Colors.grey[100]!,
+        child: Container(
+          width: double.infinity,
+          height: 140,
+          margin: const EdgeInsets.only(top: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+          ),
+        ),
+      );
     }
     if (_walletError != null) {
       return Card(
@@ -1507,9 +1521,29 @@ class _HomeScreenState extends State<HomeScreen>
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           _isLoadingNews && _newsList.isEmpty
-              ? _buildNewsLoadingIndicator()
+              ? SizedBox(
+                  height: 250,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: 2,
+                    itemBuilder: (context, index) => Container(
+                      width: 280,
+                      margin: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Shimmer.fromColors(
+                        baseColor: Colors.grey[300]!,
+                        highlightColor: Colors.grey[100]!,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                )
               : _newsList.isEmpty
                   ? _buildEmptyNewsWidget()
                   : SizedBox(

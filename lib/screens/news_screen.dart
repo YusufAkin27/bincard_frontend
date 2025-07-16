@@ -13,6 +13,7 @@ import 'news_detail_screen.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:math';
 import 'news_detail_from_id_screen.dart';
+import 'package:shimmer/shimmer.dart';
 
 // Video oynatma durumunu takip eden sınıf
 class VideoPlayState {
@@ -296,7 +297,7 @@ ${news.content}
       displacement: 40.0,
       strokeWidth: 3.0,
       child: _isLoading && newsList.isEmpty
-          ? _buildLoadingIndicator()
+          ? _buildShimmerLoadingList()
           : newsList.isEmpty
               ? _buildEmptyList()
               : NotificationListener<ScrollNotification>(
@@ -337,26 +338,30 @@ ${news.content}
     );
   }
 
-  Widget _buildLoadingIndicator() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(
-            color: AppTheme.primaryColor,
-            strokeWidth: 3,
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Haberler yükleniyor...',
-            style: TextStyle(
-              fontSize: 18,
-              color: AppTheme.textSecondaryColor,
-              fontWeight: FontWeight.w500,
+  Widget _buildShimmerLoadingList() {
+    return ListView.builder(
+      padding: const EdgeInsets.only(top: 16, bottom: 24, left: 16, right: 16),
+      itemCount: 3,
+      itemBuilder: (context, index) => Container(
+        margin: const EdgeInsets.only(bottom: 20),
+        child: Shimmer.fromColors(
+          baseColor: Colors.grey[300]!,
+          highlightColor: Colors.grey[100]!,
+          child: Container(
+            height: 140,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
             ),
           ),
-        ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildLoadingIndicator() {
+    return Center(
+      child: _buildShimmerLoadingList(),
     );
   }
 
