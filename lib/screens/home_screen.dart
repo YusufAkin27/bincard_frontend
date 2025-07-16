@@ -16,12 +16,14 @@ import 'news_screen.dart';
 import 'settings_screen.dart';
 import 'search_screen.dart';
 import 'feedback_screen.dart';
+import 'wallet_create_screen.dart';
 import 'map_screen.dart';
 import 'card_renewal_screen.dart';
 import '../services/secure_storage_service.dart';
 import '../services/user_service.dart';
 import '../services/news_service.dart';
 import '../services/api_service.dart';
+import '../constants/api_constants.dart';
 import '../models/user_model.dart';
 import '../models/news/news_page.dart';
 import '../models/news/user_news_dto.dart';
@@ -75,10 +77,9 @@ class _HomeScreenState extends State<HomeScreen>
     },
   ];
   
-  // Cüzdan bakiyesi
-  final String _walletBalance = '385,25 ₺';
-
-  // ScrollController ekle
+  Map<String, dynamic>? _walletData;
+  String? _walletError;
+  bool _isWalletLoading = false;
   final ScrollController _newsScrollController = ScrollController();
 
   @override
@@ -101,6 +102,7 @@ class _HomeScreenState extends State<HomeScreen>
     _loadNews();
     // Scroll listener ekle
     _newsScrollController.addListener(_onNewsScroll);
+    _fetchWallet();
   }
   
   // Haberleri servis üzerinden al
@@ -211,6 +213,37 @@ class _HomeScreenState extends State<HomeScreen>
     } finally {
       setState(() {
         _isLoadingNews = false;
+      });
+    }
+  }
+
+  Future<void> _fetchWallet() async {
+    setState(() {
+      _isWalletLoading = true;
+      _walletError = null;
+    });
+    try {
+      final api = ApiService();
+      final response = await api.get(ApiConstants.baseUrl + '/wallet/my-wallet');
+      if (response.data['success'] == false && response.data['message'] != null) {
+        setState(() {
+          _walletData = null;
+          _walletError = response.data['message'];
+        });
+      } else {
+        setState(() {
+          _walletData = response.data;
+          _walletError = null;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _walletData = null;
+        _walletError = 'Cüzdan bilgisi alınamadı';
+      });
+    } finally {
+      setState(() {
+        _isWalletLoading = false;
       });
     }
   }
@@ -499,25 +532,59 @@ class _HomeScreenState extends State<HomeScreen>
 
   // Balance summary section - Modern and elegant design
   Widget _buildBalanceSummary() {
+    if (_isWalletLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_walletError != null) {
+      return Card(
+        elevation: 8,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              Text(_walletError!, style: const TextStyle(fontSize: 18)),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const WalletCreateScreen(),
+                    ),
+                  );
+                },
+                child: const Text('Cüzdan Oluştur'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    if (_walletData == null) {
+      return const SizedBox.shrink();
+    }
     return Container(
       margin: const EdgeInsets.only(top: 16),
       child: Column(
         children: [
+          // Cüzdan kartı
           Container(
             width: double.infinity,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: AppTheme.blueGradient,
+                colors: [Color(0xFF1565C0), Color(0xFF42A5F5)], // Daha belirgin mavi tonlar
                 stops: const [0.3, 1.0],
               ),
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: AppTheme.primaryColor.withOpacity(0.2),
-                  blurRadius: 15,
-                  offset: const Offset(0, 6),
+                  color: Colors.blueAccent.withOpacity(0.25),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
                 ),
               ],
             ),
@@ -537,57 +604,33 @@ class _HomeScreenState extends State<HomeScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Row(
-                            children: [
-                              Icon(
-                                Icons.account_balance_wallet_outlined,
-                                color: Colors.white,
-                                size: 16,
-                              ),
-                              SizedBox(width: 8),
-                              Text(
-                                'Toplam Bakiye',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ],
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Row(
-                              children: [
-                                Icon(
-                                  Icons.star_border_rounded,
-                                  color: Colors.white,
-                                  size: 14,
-                                ),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Gold Üyelik',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
+                          Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 38),
+                          const SizedBox(width: 14),
+                          Text(
+                            'Cüzdanım',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'Toplam Bakiye',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       Text(
-                        _walletBalance,
+                        (_walletData!['balance'] ?? 0).toString() + ' ₺',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 32,
@@ -595,65 +638,92 @@ class _HomeScreenState extends State<HomeScreen>
                           letterSpacing: 0.5,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Text(
-                          'Son İşlem: 10 Nis 2023, 15:42',
-                          style: TextStyle(
+                        child: Text(
+                          'Son Güncelleme: ' + _formatDate(_walletData!['lastUpdated']),
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 11,
                             fontWeight: FontWeight.w400,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 24),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildBalanceActionButton(
-                              icon: Icons.add_rounded,
-                              label: 'Bakiye Yükle',
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const AddBalanceScreen(),
-                                  ),
-                                );
-                              },
+                      if (_walletData!['wiban'] != null) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'WIBAN: ' + _walletData!['wiban'],
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w400,
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildBalanceActionButton(
-                              icon: Icons.history_rounded,
-                              label: 'İşlem Geçmişi',
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => CardActivitiesScreen(
-                                      cardNumber: '5312 **** **** 3456',
-                                      cardName: 'Ahmet Yılmaz',
-                                      cardColor: AppTheme.blueGradient,
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
               ),
             ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AddBalanceScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('Bakiye Yükle'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green.shade600,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/transfer');
+                  },
+                  icon: const Icon(Icons.sync_alt),
+                  label: const Text('Transfer Yap'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue.shade700,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -1943,6 +2013,26 @@ class _HomeScreenState extends State<HomeScreen>
 
   String _getCategoryName(NewsType type) {
     return type.name;
+  }
+
+  String _formatDate(dynamic dateStr) {
+    if (dateStr == null) return '-';
+    try {
+      final date = DateTime.parse(dateStr.toString());
+      // Türkçe format: 15 Temmuz 2025, 10:04
+      final months = [
+        'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
+        'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
+      ];
+      String month = months[date.month - 1];
+      String day = date.day.toString();
+      String year = date.year.toString();
+      String hour = date.hour.toString().padLeft(2, '0');
+      String minute = date.minute.toString().padLeft(2, '0');
+      return '$day $month $year, $hour:$minute';
+    } catch (e) {
+      return dateStr.toString();
+    }
   }
 
   // Elegant welcome header with greeting

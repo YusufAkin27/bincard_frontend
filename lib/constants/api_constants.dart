@@ -77,4 +77,22 @@ class ApiConstants {
       'Authorization': 'Bearer $token',
     };
   }
+
+  // Wallet endpoints
+  static String get myWalletEndpoint => '/wallet/my-wallet';
+  static String get topUpWalletEndpoint => '/wallet/top-up';
+  static String get transferWalletEndpoint => '/wallet/transfer';
+  static String get createWalletEndpoint => '/wallet/create';
+  static String walletActivitiesEndpoint({String? type, String? start, String? end, int page = 0, int size = 20, String sort = 'activityDate,desc'}) {
+    final params = <String, String>{
+      if (type != null) 'type': type,
+      if (start != null) 'start': start,
+      if (end != null) 'end': end,
+      'page': page.toString(),
+      'size': size.toString(),
+      'sort': sort,
+    };
+    final query = params.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&');
+    return '/wallet/activities?$query';
+  }
 }

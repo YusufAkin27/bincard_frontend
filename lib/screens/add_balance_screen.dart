@@ -3,12 +3,25 @@ import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../services/nfc_service.dart';
+import '../services/api_service.dart';
+import '../constants/api_constants.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter/material.dart';
+import '../services/secure_storage_service.dart';
+import 'package:dio/dio.dart';
 
 class AddBalanceScreen extends StatefulWidget {
   const AddBalanceScreen({super.key});
 
   @override
   State<AddBalanceScreen> createState() => _AddBalanceScreenState();
+}
+
+class _AddBalanceStep {
+  static const int walletInfo = 0;
+  static const int amount = 1;
+  static const int paymentMethod = 2;
+  static const int cardInfo = 3;
 }
 
 class _AddBalanceScreenState extends State<AddBalanceScreen> {
@@ -27,6 +40,8 @@ class _AddBalanceScreenState extends State<AddBalanceScreen> {
   // NFC servisi
   final NfcService _nfcService = NfcService();
   bool _isNfcReading = false;
+  int _currentStep = 0;
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -81,23 +96,11 @@ class _AddBalanceScreenState extends State<AddBalanceScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildCardSelection(),
-              const SizedBox(height: 24),
-              _buildSectionTitle('Yüklenecek Tutar'),
-              const SizedBox(height: 12),
-              _buildPredefinedAmounts(),
-              const SizedBox(height: 16),
-              _buildCustomAmountField(),
-              const SizedBox(height: 24),
-              _buildSectionTitle('Ödeme Yöntemi'),
-              const SizedBox(height: 12),
-              _buildPaymentMethodSelection(),
-              if (_selectedPaymentMethodIndex == 0) ...[
-                const SizedBox(height: 16),
-                _buildCreditCardForm(),
-              ],
+              _buildStepContent(),
               const Spacer(),
-              _buildTotalAndConfirmButton(),
+              _buildStepNavigation(),
+              if (_isLoading)
+                const Center(child: CircularProgressIndicator()),
               if (_isNfcReading)
                 Container(
                   margin: const EdgeInsets.only(top: 16),
@@ -141,6 +144,183 @@ class _AddBalanceScreenState extends State<AddBalanceScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildStepContent() {
+    switch (_currentStep) {
+      case _AddBalanceStep.walletInfo:
+        return _buildWalletInfoStep();
+      case _AddBalanceStep.amount:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionTitle('Yüklenecek Tutar'),
+            const SizedBox(height: 12),
+            _buildPredefinedAmounts(),
+            const SizedBox(height: 16),
+            _buildCustomAmountField(),
+          ],
+        );
+      case _AddBalanceStep.paymentMethod:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionTitle('Ödeme Yöntemi'),
+            const SizedBox(height: 12),
+            _buildPaymentMethodSelection(onlyCard: true),
+          ],
+        );
+      case _AddBalanceStep.cardInfo:
+        return _buildCreditCardForm();
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Widget _buildWalletInfoStep() {
+    // Burada gerçek cüzdan bakiyesi ve aktiflik gösterilecek (örnek statik)
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.account_balance_wallet_rounded, color: AppTheme.primaryColor, size: 32),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Cüzdan Bakiyesi',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimaryColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '603.00 ₺', // Burada gerçek bakiye gösterilecek
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.green,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Aktif',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.green,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepNavigation() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        if (_currentStep > 0)
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                _currentStep--;
+              });
+            },
+            child: const Text('Geri'),
+          ),
+        if (_currentStep < 3)
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                _currentStep++;
+              });
+            },
+            child: const Text('İleri'),
+          ),
+        if (_currentStep == 3)
+          ElevatedButton(
+            onPressed: _isLoading ? null : _handleTopUp,
+            child: const Text('Onayla'),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildPaymentMethodSelection({bool onlyCard = false}) {
+    // Sadece kredi/banka kartı aktif olacak şekilde
+    return Column(
+      children: [
+        ListTile(
+          leading: Icon(Icons.credit_card, color: AppTheme.primaryColor),
+          title: const Text('Kredi/Banka Kartı'),
+          trailing: Radio<int>(
+            value: 0,
+            groupValue: _selectedPaymentMethodIndex,
+            onChanged: (val) {
+              setState(() {
+                _selectedPaymentMethodIndex = 0;
+              });
+            },
+          ),
+        ),
+        if (!onlyCard)
+          ListTile(
+            leading: Icon(Icons.account_balance_wallet, color: Colors.grey),
+            title: const Text('Cüzdan'),
+            trailing: Radio<int>(
+              value: 1,
+              groupValue: _selectedPaymentMethodIndex,
+              onChanged: null, // Disabled
+            ),
+            enabled: false,
+            subtitle: const Text('Şu an aktif değil', style: TextStyle(color: Colors.grey)),
+          ),
+        if (!onlyCard)
+          ListTile(
+            leading: Icon(Icons.qr_code, color: Colors.grey),
+            title: const Text('QR ile Ödeme'),
+            trailing: Radio<int>(
+              value: 2,
+              groupValue: _selectedPaymentMethodIndex,
+              onChanged: null, // Disabled
+            ),
+            enabled: false,
+            subtitle: const Text('Şu an aktif değil', style: TextStyle(color: Colors.grey)),
+          ),
+      ],
     );
   }
 
@@ -362,47 +542,6 @@ class _AddBalanceScreenState extends State<AddBalanceScreen> {
     );
   }
 
-  Widget _buildPaymentMethodSelection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          _buildPaymentMethodItem(
-            icon: FontAwesomeIcons.creditCard,
-            title: 'Kredi/Banka Kartı',
-            subtitle: '**** 1234',
-            index: 0,
-          ),
-          const Divider(height: 24),
-          _buildPaymentMethodItem(
-            icon: Icons.account_balance,
-            title: 'Havale/EFT',
-            subtitle: 'Banka hesabınızdan ödeme yapın',
-            index: 1,
-          ),
-          const Divider(height: 24),
-          _buildPaymentMethodItem(
-            icon: Icons.phone_android,
-            title: 'Mobil Ödeme',
-            subtitle: 'Faturanıza yansıtılır',
-            index: 2,
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildPaymentMethodItem({
     required IconData icon,
     required String title,
@@ -563,12 +702,7 @@ class _AddBalanceScreenState extends State<AddBalanceScreen> {
               ),
             ),
             textCapitalization: TextCapitalization.characters,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Kart sahibinin adı gerekli';
-              }
-              return null;
-            },
+            // validator kaldırıldı, zorunlu değil
           ),
           const SizedBox(height: 16),
           Row(
@@ -814,6 +948,74 @@ class _AddBalanceScreenState extends State<AddBalanceScreen> {
               ),
             ],
           ),
+    );
+  }
+
+  Future<void> _handleTopUp() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() { _isLoading = true; });
+    try {
+      final api = ApiService();
+      // api.setupTokenInterceptor(); // Artık gerek yok, manuel header ekleyeceğiz
+      final amount = double.tryParse(_amountController.text.replaceAll(',', '.')) ?? 0;
+      final cardNumber = _cardNumberController.text.replaceAll(' ', '');
+      final cardExpiry = _cardExpiryController.text;
+      final cardCvc = _cardCvvController.text;
+      final body = {
+        'amount': amount,
+        'cardNumber': cardNumber,
+        'cardExpiry': cardExpiry,
+        'cardCvc': cardCvc,
+        'platform': 'MOBILE',
+      };
+      // accessToken'ı al
+      final accessToken = await SecureStorageService().getAccessToken();
+      final response = await api.post(
+        ApiConstants.topUpWalletEndpoint,
+        data: body,
+        options: Options(
+          headers: {'Authorization': 'Bearer $accessToken'},
+        ),
+      );
+      if (response.data['success'] == true && response.data['data'] != null) {
+        final html = response.data['data'];
+        if (mounted) {
+          final controller = WebViewController()
+            ..setJavaScriptMode(JavaScriptMode.unrestricted)
+            ..loadHtmlString(html);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => Scaffold(
+                appBar: AppBar(title: const Text('3D Secure')),
+                body: WebViewWidget(controller: controller),
+              ),
+            ),
+          );
+        }
+      } else {
+        _showError(response.data['message'] ?? 'İşlem başarısız.');
+      }
+    } catch (e) {
+      _showError('İşlem sırasında hata oluştu.');
+    } finally {
+      setState(() { _isLoading = false; });
+    }
+  }
+
+  void _showError(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hata'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tamam'),
+          ),
+        ],
+      ),
     );
   }
 }

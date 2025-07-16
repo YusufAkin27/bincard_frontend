@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import '../services/api_service.dart';
+import '../constants/api_constants.dart';
+import '../services/secure_storage_service.dart';
+import 'package:dio/dio.dart';
 
 class TransferScreen extends StatefulWidget {
   const TransferScreen({super.key});
@@ -30,11 +34,49 @@ class _TransferScreenState extends State<TransferScreen>
       'color': AppTheme.greenGradient,
     },
   ];
+  Map<String, dynamic>? _walletData;
+  String? _walletError;
+  final TextEditingController _receiverController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchWallet();
+  }
+
+  Future<void> _fetchWallet() async {
+    setState(() { _walletError = null; });
+    try {
+      final api = ApiService();
+      final accessToken = await SecureStorageService().getAccessToken();
+      final response = await api.get(
+        ApiConstants.myWalletEndpoint,
+        options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
+      );
+      if (response.data['success'] == false && response.data['message'] != null) {
+        setState(() {
+          _walletData = null;
+          _walletError = response.data['message'];
+        });
+      } else {
+        setState(() {
+          _walletData = response.data;
+          _walletError = null;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _walletData = null;
+        _walletError = 'Cüzdan bilgisi alınamadı';
+      });
+    }
+  }
 
   @override
   void dispose() {
     _amountController.dispose();
     _noteController.dispose();
+    _receiverController.dispose();
     super.dispose();
   }
 
@@ -180,108 +222,76 @@ class _TransferScreenState extends State<TransferScreen>
   }
 
   Widget _buildCardSelector() {
-    return SizedBox(
-      height: 200,
-      child: PageView.builder(
-        itemCount: _myCards.length,
-        onPageChanged: (index) {
-          setState(() {
-            _selectedCardIndex = index;
-          });
-        },
-        itemBuilder: (context, index) {
-          final card = _myCards[index];
-          return Container(
-            margin: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: card['color'],
+    // Gerçek cüzdan bilgisi gösterilecek
+    if (_walletError != null) {
+      return Card(
+        elevation: 8,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              Text(_walletError!, style: const TextStyle(fontSize: 18)),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _fetchWallet,
+                child: const Text('Tekrar Dene'),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Stack(
+            ],
+          ),
+        ),
+      );
+    }
+    if (_walletData == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    return Card(
+      elevation: 8,
+      shadowColor: AppTheme.primaryColor.withOpacity(0.3),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppTheme.primaryColor,
+              AppTheme.primaryColor.withOpacity(0.8),
+              AppTheme.accentColor,
+            ],
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Toplam Bakiye', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 16, fontWeight: FontWeight.w500)),
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Positioned(
-                  top: 10,
-                  right: 10,
-                  child: Icon(
-                    Icons.wifi,
-                    color: Colors.white.withOpacity(0.7),
-                    size: 24,
-                  ),
+                Text(
+                  (_walletData!['balance'] ?? 0).toString(),
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        card['name'],
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        card['number'],
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                      const Spacer(),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'MEVCUT BAKİYE',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.7),
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                card['balance'],
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                          Icon(
-                            FontAwesomeIcons.ccVisa,
-                            color: Colors.white.withOpacity(0.9),
-                            size: 32,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
+                const SizedBox(width: 4),
+                Text('₺', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
               ],
             ),
-          );
-        },
+            const SizedBox(height: 16),
+            Text('Son Güncelleme: ' + (_walletData!['lastUpdated'] ?? ''), style: const TextStyle(color: Colors.white, fontSize: 14)),
+            if (_walletData!['wiban'] != null) ...[
+              const SizedBox(height: 8),
+              Text('WIBAN: ' + _walletData!['wiban'], style: const TextStyle(color: Colors.white, fontSize: 14)),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -290,6 +300,19 @@ class _TransferScreenState extends State<TransferScreen>
     return Column(
       children: [
         _buildSelectedTransferMethodContent(),
+        const SizedBox(height: 16),
+        _buildTextField(
+          controller: _receiverController,
+          label: 'Alıcı Telefonu veya WIBAN',
+          hint: '5331000001 veya WIBAN',
+          prefixIcon: Icons.person,
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Alıcı bilgisi zorunlu';
+            }
+            return null;
+          },
+        ),
         const SizedBox(height: 16),
         _buildTextField(
           controller: _amountController,
@@ -316,8 +339,8 @@ class _TransferScreenState extends State<TransferScreen>
         const SizedBox(height: 16),
         _buildTextField(
           controller: _noteController,
-          label: 'Not (İsteğe bağlı)',
-          hint: 'Transfer için bir not ekleyin',
+          label: 'Açıklama (İsteğe bağlı)',
+          hint: 'Transfer için bir açıklama ekleyin',
           prefixIcon: Icons.note,
           maxLines: 2,
         ),
@@ -525,252 +548,83 @@ class _TransferScreenState extends State<TransferScreen>
   }
 
   Widget _buildTransferButton() {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      height: 56,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: ElevatedButton(
-        onPressed: () {
-          if (_formKey.currentState!.validate()) {
-            // Transfer işlemini onayla
-            _showTransferConfirmation();
-          }
-        },
+      child: ElevatedButton.icon(
+        onPressed: _handleTransfer,
+        icon: const Icon(Icons.sync_alt),
+        label: const Text('Transferi Gönder'),
         style: ElevatedButton.styleFrom(
           backgroundColor: AppTheme.primaryColor,
           foregroundColor: Colors.white,
-          padding: EdgeInsets.zero,
+          padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
           elevation: 0,
         ),
-        child: const Text(
-          'Transferi Onayla',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
       ),
     );
   }
 
-  void _showTransferConfirmation() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder:
-          (context) => Container(
-            padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
-              ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 24),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Text(
-                  'Transfer Onayı',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimaryColor,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                _buildTransferConfirmationDetail(
-                  title: 'Gönderen Kart',
-                  value: _myCards[_selectedCardIndex]['name'],
-                ),
-                const Divider(),
-                _buildTransferConfirmationDetail(
-                  title: 'Transfer Yöntemi',
-                  value:
-                      _selectedTransferMethod == 0
-                          ? 'NFC ile Transfer'
-                          : 'QR Kod ile Transfer',
-                ),
-                const Divider(),
-                _buildTransferConfirmationDetail(
-                  title: 'Transfer Tutarı',
-                  value: '${_amountController.text} ₺',
-                  isHighlighted: true,
-                ),
-                if (_noteController.text.isNotEmpty) ...[
-                  const Divider(),
-                  _buildTransferConfirmationDetail(
-                    title: 'Not',
-                    value: _noteController.text,
-                  ),
-                ],
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                        },
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: AppTheme.primaryColor),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: Text(
-                          'İptal',
-                          style: TextStyle(
-                            color: AppTheme.primaryColor,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          // Başarılı transfer mesajı göster
-                          _showTransferSuccessful();
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: const Text(
-                          'Onayla',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-    );
+  Future<void> _handleTransfer() async {
+    if (!_formKey.currentState!.validate()) return;
+    final api = ApiService();
+    final accessToken = await SecureStorageService().getAccessToken();
+    final double amount = double.tryParse(_amountController.text.replaceAll(',', '.')) ?? 0;
+    final body = {
+      'receiverIdentifier': _receiverController.text.trim(),
+      'amount': amount,
+      'description': _noteController.text.trim(),
+    };
+    try {
+      final response = await api.post(
+        ApiConstants.transferWalletEndpoint,
+        data: body,
+        options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
+      );
+      if (response.data['success'] == true) {
+        _showSuccessDialog();
+      } else {
+        _showErrorDialog(response.data['message'] ?? 'Transfer başarısız.');
+      }
+    } catch (e) {
+      _showErrorDialog('Transfer sırasında hata oluştu.');
+    }
   }
 
-  Widget _buildTransferConfirmationDetail({
-    required String title,
-    required String value,
-    bool isHighlighted = false,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            title,
-            style: TextStyle(fontSize: 14, color: AppTheme.textSecondaryColor),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color:
-                  isHighlighted
-                      ? AppTheme.primaryColor
-                      : AppTheme.textPrimaryColor,
-            ),
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Başarılı'),
+        content: const Text('Transfer işlemi başarıyla tamamlandı.'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pop(context);
+            },
+            child: const Text('Tamam'),
           ),
         ],
       ),
     );
   }
 
-  void _showTransferSuccessful() {
+  void _showErrorDialog(String message) {
     showDialog(
       context: context,
-      builder:
-          (context) => Dialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.check_circle,
-                      color: Colors.green,
-                      size: 48,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Transfer Başarılı!',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimaryColor,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${_amountController.text} ₺ tutarındaki transfer işleminiz başarıyla gerçekleştirildi.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: AppTheme.textSecondaryColor),
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      Navigator.pop(context); // Ana sayfaya dön
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 50),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: const Text(
-                      'Tamam',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+      builder: (context) => AlertDialog(
+        title: const Text('Hata'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tamam'),
           ),
+        ],
+      ),
     );
   }
 }
