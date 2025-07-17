@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import '../services/secure_storage_service.dart';
 import 'package:dio/dio.dart';
 import '../routes.dart';
+import 'package:card_scanner/card_scanner.dart';
 
 class AddBalanceScreen extends StatefulWidget {
   const AddBalanceScreen({super.key});
@@ -754,10 +755,10 @@ class _AddBalanceScreenState extends State<AddBalanceScreen> {
                 ),
               ),
               OutlinedButton.icon(
-                onPressed: _startNfcReading,
-                icon: Icon(Icons.contactless, color: AppTheme.primaryColor),
+                onPressed: _startCardScan,
+                icon: Icon(Icons.camera_alt, color: AppTheme.primaryColor),
                 label: Text(
-                  'NFC ile Oku',
+                  'Kamera ile Oku',
                   style: TextStyle(color: AppTheme.primaryColor),
                 ),
                 style: OutlinedButton.styleFrom(
@@ -963,64 +964,21 @@ class _AddBalanceScreenState extends State<AddBalanceScreen> {
     );
   }
 
-  // NFC ile kart okuma işlemini başlat
-  Future<void> _startNfcReading() async {
-    // NFC kullanılabilir mi kontrol et
-    final isAvailable = await _nfcService.isAvailable();
-    if (!isAvailable) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('NFC özelliği bu cihazda kullanılamıyor.'),
-          ),
-        );
-      }
-      return;
-    }
-
-    // NFC okuma durumunu güncelle
-    setState(() {
-      _isNfcReading = true;
-    });
-
-    // NFC ile kart okumayı başlat
-    await _nfcService.startCreditCardReading(
-      onCardRead: (cardData) {
-        if (mounted) {
-          setState(() {
-            _isNfcReading = false;
-
-            // Kart bilgilerini doldur
-            _cardNumberController.text = cardData['cardNumber'] ?? '';
-            _cardHolderController.text =
-                cardData['holderName'] ?? 'KART SAHİBİ';
-            _cardExpiryController.text = cardData['expiryDate'] ?? '';
-            // CVV asla NFC ile okunamaz, kullanıcı manuel doldurmalıdır
-
-            // Başarılı okuma mesajı göster
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Kart bilgileri başarıyla okundu. Lütfen CVV kodunu manuel olarak girin.',
-                ),
-                backgroundColor: Colors.green,
-              ),
-            );
-          });
-        }
-      },
-      onError: (errorMessage) {
-        if (mounted) {
-          setState(() {
-            _isNfcReading = false;
-          });
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
-          );
-        }
-      },
+  // NFC ile kart okuma fonksiyonunu kaldır, yerine kart tarama fonksiyonu ekle
+  Future<void> _startCardScan() async {
+    final cardDetails = await CardScanner.scanCard(
+      scanOptions: CardScanOptions(
+        scanCardHolderName: true,
+        scanExpiryDate: true,
+      ),
     );
+    if (cardDetails != null) {
+      setState(() {
+        _cardNumberController.text = cardDetails.cardNumber ?? '';
+        _cardHolderController.text = cardDetails.cardHolderName ?? '';
+        _cardExpiryController.text = cardDetails.expiryDate ?? '';
+      });
+    }
   }
 
   // NFC okuma işlemini iptal et
