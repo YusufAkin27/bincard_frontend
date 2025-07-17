@@ -16,6 +16,9 @@
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-permission android:name="android.permission.USE_FINGERPRINT" />
     
+    <!-- KAMERA İZNİ EKLENDİ -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    
     <application
         android:label="Şehir Kartım"
         android:name="${applicationName}"

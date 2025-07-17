@@ -6,9 +6,15 @@ import '../constants/api_constants.dart';
 import '../services/secure_storage_service.dart';
 import 'package:dio/dio.dart';
 import '../routes.dart';
+import 'qr_generate_screen.dart';
+import 'qr_scan_screen.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'dart:convert'; // Added for base64Decode
 
 class TransferScreen extends StatefulWidget {
-  const TransferScreen({super.key});
+  final String wiban; // Kullanıcının kendi wiban'ı
+
+  const TransferScreen({Key? key, required this.wiban}) : super(key: key);
 
   @override
   State<TransferScreen> createState() => _TransferScreenState();
@@ -38,6 +44,8 @@ class _TransferScreenState extends State<TransferScreen>
   Map<String, dynamic>? _walletData;
   String? _walletError;
   final TextEditingController _receiverController = TextEditingController();
+  final TextEditingController _receiverNameController = TextEditingController();
+  String? _receiverName; // Alıcı ad soyad
 
   @override
   void initState() {
@@ -314,6 +322,31 @@ class _TransferScreenState extends State<TransferScreen>
             return null;
           },
         ),
+        const SizedBox(height: 8),
+        _buildTextField(
+          controller: _receiverNameController,
+          label: 'Ad Soyad',
+          hint: 'Alıcı adı ve soyadı',
+          prefixIcon: Icons.account_circle,
+          validator: (value) {
+            // Ad soyad zorunlu değil, isterseniz zorunlu yapabilirsiniz
+            return null;
+          },
+        ),
+        if (_receiverName != null && _receiverName!.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
+            child: Row(
+              children: [
+                const Icon(Icons.account_circle, color: Colors.grey),
+                const SizedBox(width: 8),
+                Text(
+                  _receiverName!,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ),
         const SizedBox(height: 16),
         _buildTextField(
           controller: _amountController,
@@ -396,7 +429,7 @@ class _TransferScreenState extends State<TransferScreen>
           ],
         ),
       );
-    } else {
+    } else if (_selectedTransferMethod == 1) {
       // QR Code Transfer
       return Container(
         padding: const EdgeInsets.all(16),
@@ -411,37 +444,129 @@ class _TransferScreenState extends State<TransferScreen>
             ),
           ],
         ),
-        child: Column(
+        child: Row(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _buildQrOption(
-                    icon: Icons.qr_code_scanner,
-                    title: 'QR Kod Tara',
-                    description: 'Alıcının QR kodunu tarayın',
-                    onTap: () {
-                      // QR kodu tarama işlevi
-                    },
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildQrOption(
-                    icon: Icons.qr_code,
-                    title: 'QR Kod Oluştur',
-                    description: 'Transfer için QR kod oluşturun',
-                    onTap: () {
-                      // QR kodu oluşturma işlevi
-                    },
-                  ),
-                ),
-              ],
+            Expanded(
+              child: _buildQrOption(
+                icon: Icons.qr_code_scanner,
+                title: 'QR Kod Tara',
+                description: 'Alıcının QR kodunu tarayın',
+                onTap: () async {
+                  final confirm = await showModalBottomSheet<bool>(
+                    context: context,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                    ),
+                    builder: (context) => Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.camera_alt, size: 40, color: AppTheme.primaryColor),
+                          SizedBox(height: 16),
+                          Text('Kamera izni vermek istiyor musunuz?',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          SizedBox(height: 12),
+                          Text('QR kodu taramak için kamera iznine ihtiyacımız var.'),
+                          SizedBox(height: 24),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () => Navigator.of(context).pop(false),
+                                  child: Text('Hayır'),
+                                ),
+                              ),
+                              SizedBox(width: 16),
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: () => Navigator.of(context).pop(true),
+                                  child: Text('Evet'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                  if (confirm == true) {
+                    var status = await Permission.camera.status;
+                    if (status.isGranted) {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => QrScanScreen()),
+                      );
+                      if (result != null) {
+                        if (result is Map) {
+                          debugPrint('QR koddan gelen Map: ' + result.toString());
+                          String? wiban = result['wiban'] ?? result['WIBAN'] ?? result['iban'] ?? result['IBAN'];
+                          setState(() {
+                            _receiverController.text = wiban ?? '';
+                            final firstName = result['firstName'] ?? result['FIRSTNAME'] ?? '';
+                            final lastName = result['lastName'] ?? result['LASTNAME'] ?? '';
+                            _receiverNameController.text = (firstName + ' ' + lastName).trim();
+                          });
+                        } else if (result is String) {
+                          setState(() {
+                            _receiverController.text = result;
+                            _receiverNameController.text = '';
+                          });
+                        }
+                      }
+                    } else {
+                      status = await Permission.camera.request();
+                      if (status.isGranted) {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => QrScanScreen()),
+                        );
+                        if (result != null) {
+                          if (result is Map) {
+                            debugPrint('QR koddan gelen Map: ' + result.toString());
+                            String? wiban = result['wiban'] ?? result['WIBAN'] ?? result['iban'] ?? result['IBAN'];
+                            setState(() {
+                              _receiverController.text = wiban ?? '';
+                              final firstName = result['firstName'] ?? result['FIRSTNAME'] ?? '';
+                              final lastName = result['lastName'] ?? result['LASTNAME'] ?? '';
+                              _receiverNameController.text = (firstName + ' ' + lastName).trim();
+                            });
+                          } else if (result is String) {
+                            setState(() {
+                              _receiverController.text = result;
+                              _receiverNameController.text = '';
+                            });
+                          }
+                        }
+                      }
+                      // izin verilmezse hiçbir şey yapma
+                    }
+                  }
+                },
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildQrOption(
+                icon: Icons.qr_code,
+                title: 'QR Kod Oluştur',
+                description: 'Transfer için QR kod oluşturun',
+                onTap: () {
+                  final wiban = _walletData != null ? _walletData!['wiban'] ?? '' : '';
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => QrGenerateScreen(wiban: wiban),
+                    ),
+                  );
+                },
+              ),
             ),
           ],
         ),
       );
     }
+    return const SizedBox.shrink();
   }
 
   Widget _buildQrOption({
@@ -577,6 +702,7 @@ class _TransferScreenState extends State<TransferScreen>
       'receiverIdentifier': _receiverController.text.trim(),
       'amount': amount,
       'description': _noteController.text.trim(),
+      // Ad soyad API'ye gönderilmeyecek
     };
     try {
       final response = await api.post(

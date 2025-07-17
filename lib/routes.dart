@@ -104,7 +104,7 @@ class AppRoutes {
     addBalance: (context) => const AddBalanceScreen(),
     addCard: (context) => const AddCardScreen(),
     savedCards: (context) => const SavedCardsScreen(),
-    transfer: (context) => const TransferScreen(),
+    transfer: (context) => TransferScreen(wiban: "KULLANICI_WIBAN_DEGERI"),
     notifications: (context) => const NotificationsScreen(),
     busRoutes: (context) => const BusRoutesScreen(),
     busTracking: (context) => const BusTrackingScreen(),

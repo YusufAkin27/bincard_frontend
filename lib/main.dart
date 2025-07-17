@@ -170,7 +170,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAndRequestLocationPermission(context, showMessage: true);
       _startPeriodicLocationSend(context);
-      // NotificationService().handleNotificationFlow(); // kaldırıldı
+      NotificationService().handleNotificationFlow(); // FCM token gönderimini başlat
     });
   }
   
@@ -299,11 +299,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     if (!granted) {
       // Bugün izin istendi mi kontrol et
       final requestedToday = await mapService.isPermissionRequestedToday();
-      if (!requestedToday && context.mounted && showMessage) {
-        // Kullanıcıya izin verin mesajı göster
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Lütfen konum izni verin, uygulama tam çalışabilmesi için gereklidir.')),
-        );
+      // Sadece ana ekranda (home) konum SnackBar'ı göster, diğer tüm ekranlarda gösterme
+      final currentRoute = ModalRoute.of(navigatorKey.currentContext!)?.settings.name;
+      if (!requestedToday && context.mounted && showMessage && currentRoute == AppRoutes.home) {
+        if (navigatorKey.currentContext != null) {
+          ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
+            const SnackBar(content: Text('Lütfen konum izni verin, uygulama tam çalışabilmesi için gereklidir.')),
+          );
+        }
       }
       return;
     }

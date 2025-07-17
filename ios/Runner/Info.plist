@@ -72,5 +72,7 @@
 	<array>
 		<string>applinks:bincard.com</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>QR kod taramak için kameraya ihtiyacımız var.</string>
 </dict>
 </plist>

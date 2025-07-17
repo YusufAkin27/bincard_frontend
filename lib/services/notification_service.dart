@@ -75,46 +75,47 @@ class NotificationService {
 
   /// FCM tokenı PATCH ile query parametre olarak ve accessToken'ı Bearer header ile API'ye gönderir
   Future<bool> sendFcmTokenToApi(String fcmToken) async {
-  try {
-    // 1. Access Token al
-    final secureStorage = SecureStorageService();
-    final accessToken = await secureStorage.getAccessToken(); 
+    try {
+      // 1. Access Token al
+      final secureStorage = SecureStorageService();
+      final accessToken = await secureStorage.getAccessToken(); 
 
-    if (accessToken == null || accessToken.isEmpty) {
-      debugPrint('[sendFcmTokenToApi] ❌ Access token bulunamadı, istek gönderilmeyecek.');
+      if (accessToken == null || accessToken.isEmpty) {
+        debugPrint('[sendFcmTokenToApi] ❌ Access token bulunamadı, istek gönderilmeyecek.');
+        return false;
+      }
+
+      // 2. URL oluştur
+      final url = 'http://192.168.174.214:8080/v1/api/user/update-fcm-token?fcmToken=$fcmToken';
+      debugPrint('[sendFcmTokenToApi] 🔗 URL: $url');
+      debugPrint('[sendFcmTokenToApi] 🔐 Authorization: Bearer ${accessToken.substring(0, 10)}...');
+      debugPrint('[sendFcmTokenToApi] 🚀 FCM token gönderiliyor: $fcmToken');
+
+      // 3. Dio ile PATCH isteği
+      final dio = Dio();
+      final response = await dio.patch(
+        url,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $accessToken',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+
+      // 4. Yanıt kontrol
+      if (response.statusCode == 200 && response.data == true) {
+        debugPrint('[sendFcmTokenToApi] ✅ FCM token güncelleme başarılı.');
+        return true;
+      } else {
+        debugPrint('[sendFcmTokenToApi] ⚠️ FCM token güncelleme başarısız. Yanıt: ${response.data}');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('[sendFcmTokenToApi] 🛑 Hata oluştu: $e');
       return false;
     }
-
-    // 2. URL oluştur
-    final url = '${ApiConstants.baseUrl}${ApiConstants.updateFcmTokenEndpoint(fcmToken)}';
-    debugPrint('[sendFcmTokenToApi] 🔗 URL: $url');
-    debugPrint('[sendFcmTokenToApi] 🔐 Authorization: Bearer ${accessToken.substring(0, 10)}...');
-
-    // 3. Dio ile PATCH isteği
-    final dio = Dio();
-    final response = await dio.patch(
-      url,
-      options: Options(
-        headers: {
-          'Authorization': 'Bearer $accessToken',
-          'Content-Type': 'application/json',
-        },
-      ),
-    );
-
-    // 4. Yanıt kontrol
-    if (response.statusCode == 200 && response.data == true) {
-      debugPrint('[sendFcmTokenToApi] ✅ FCM token güncelleme başarılı.');
-      return true;
-    } else {
-      debugPrint('[sendFcmTokenToApi] ⚠️ FCM token güncelleme başarısız. Yanıt: ${response.data}');
-      return false;
-    }
-  } catch (e) {
-    debugPrint('[sendFcmTokenToApi] 🛑 Hata oluştu: $e');
-    return false;
   }
-}
 
   // Bildirimleri getir
   Future<Response> getNotifications({String type = 'SUCCESS', int page = 0, int size = 10}) async {
