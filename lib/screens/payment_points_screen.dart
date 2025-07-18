@@ -3,9 +3,7 @@ import '../models/payment_point_model.dart';
 import '../services/payment_point_service.dart';
 import 'payment_point_detail_screen.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart' as latlng;
-import 'map_location_picker_screen.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../services/map_service.dart';
 import '../constants/api_constants.dart';
 import '../services/user_service.dart';
@@ -179,23 +177,7 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
     });
   }
 
-  Future<void> _selectLocationOnMap() async {
-    final latlng.LatLng? result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => MapLocationPickerScreen(
-          initialLat: _latitude,
-          initialLng: _longitude,
-        ),
-      ),
-    );
-    if (result != null) {
-      setState(() {
-        _latitude = result.latitude;
-        _longitude = result.longitude;
-      });
-    }
-  }
+  // latlng ve MapLocationPickerScreen ile ilgili kodları kaldır
 
   void _updateLastFetchedPoints(List<PaymentPoint> points) {
     setState(() {
@@ -203,53 +185,38 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
     });
   }
 
-  List<Marker> _buildMarkers() {
-    return _lastFetchedPoints.map((point) {
-      return Marker(
-        width: 48,
-        height: 48,
-        point: latlng.LatLng(point.location.latitude, point.location.longitude),
-        child: GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => PaymentPointDetailScreen(paymentPointId: point.id),
-              ),
-            );
-          },
-          child: Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.green.shade600,
-              border: Border.all(color: Colors.white, width: 4),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: const Center(
-              child: Icon(Icons.store_mall_directory, color: Colors.white, size: 28),
-            ),
+  GoogleMapController? _mapController;
+  Set<Marker> _googleMarkers = {};
+
+  void _updateGoogleMarkers(List<PaymentPoint> points) {
+    final markers = points.map((point) => Marker(
+      markerId: MarkerId(point.id.toString()),
+      position: LatLng(point.location.latitude, point.location.longitude),
+      infoWindow: InfoWindow(title: point.name),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PaymentPointDetailScreen(paymentPointId: point.id),
           ),
-        ),
-      );
-    }).toList(growable: false);
+        );
+      },
+    )).toSet();
+    // Kullanıcı konumu markerı
+    if (_latitude != null && _longitude != null) {
+      markers.add(Marker(
+        markerId: const MarkerId('user_location'),
+        position: LatLng(_latitude!, _longitude!),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        infoWindow: const InfoWindow(title: 'Mevcut Konum'),
+      ));
+    }
+    setState(() {
+      _googleMarkers = markers;
+    });
   }
 
-  latlng.LatLng _initialMapCenter() {
-    if (_lastFetchedPoints.isNotEmpty) {
-      final first = _lastFetchedPoints.first.location;
-      return latlng.LatLng(first.latitude, first.longitude);
-    }
-    if (_latitude != null && _longitude != null) {
-      return latlng.LatLng(_latitude!, _longitude!);
-    }
-    return latlng.LatLng(39.925533, 32.866287); // Türkiye merkez
-  }
+  // _initialMapCenter fonksiyonu artık Google Maps LatLng ile olacak veya kullanılmıyorsa tamamen kaldırılacak
 
   Widget _buildStatusChip(bool active) {
     return Chip(
@@ -412,7 +379,7 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
               ],
             ),
           ),
-          // Harita sabit
+          // Harita sabit (Google Maps)
           SizedBox(
             height: 260,
             child: FutureBuilder<List<PaymentPoint>>(
@@ -427,55 +394,24 @@ class _PaymentPointsScreenState extends State<PaymentPointsScreen> {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (_lastFetchedPoints != points) {
                     _updateLastFetchedPoints(points);
+                    _updateGoogleMarkers(points);
                   }
                 });
-                return FlutterMap(
-                  options: MapOptions(
-                    center: _initialMapCenter(),
+                return GoogleMap(
+                  initialCameraPosition: CameraPosition(
+                    target: _latitude != null && _longitude != null
+                        ? LatLng(_latitude!, _longitude!)
+                        : points.isNotEmpty
+                            ? LatLng(points.first.location.latitude, points.first.location.longitude)
+                            : const LatLng(39.925533, 32.866287),
                     zoom: _mapZoom,
                   ),
-                  children: [
-                    TileLayer(
-                      urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      subdomains: const ['a', 'b', 'c'],
-                      userAgentPackageName: 'com.example.city_card.city_card',
-                    ),
-                    MarkerLayer(markers: [
-                      ..._buildMarkers(),
-                      if (_latitude != null && _longitude != null)
-                        Marker(
-                          width: 54,
-                          height: 54,
-                          point: latlng.LatLng(_latitude!, _longitude!),
-                          child: FutureBuilder<Widget>(
-                            future: _buildUserLocationMarker(),
-                            builder: (context, snapshot) {
-                              if (snapshot.connectionState == ConnectionState.done && snapshot.data != null) {
-                                return snapshot.data!;
-                              } else {
-                                return Container(
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Colors.blue.shade700,
-                                    border: Border.all(color: Colors.white, width: 5),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.25),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 3),
-                                      ),
-                                    ],
-                                  ),
-                                  child: const Center(
-                                    child: Icon(Icons.person_pin_circle, color: Colors.white, size: 32),
-                                  ),
-                                );
-                              }
-                            },
-                          ),
-                        ),
-                    ]),
-                  ],
+                  markers: _googleMarkers,
+                  onMapCreated: (controller) {
+                    _mapController = controller;
+                  },
+                  myLocationEnabled: true,
+                  myLocationButtonEnabled: true,
                 );
               },
             ),
