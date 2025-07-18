@@ -113,7 +113,7 @@ class _LoginScreenState extends State<LoginScreen>
       
       // Eğer refresh token ve biyometrik giriş aktifse, otomatik biyometrik giriş için hazırlık yap
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _prepareAutoBiometricLogin();
+        // _prepareAutoBiometricLogin(); // Bu fonksiyonu kaldırdık
       });
     } catch (e) {
       debugPrint('Başlangıç hatası: $e');
@@ -449,9 +449,9 @@ class _LoginScreenState extends State<LoginScreen>
     precacheImage(const AssetImage('assets/images/logo.png'), context);
     
     // Refresh token varsa ve biyometrik giriş aktifse otomatik olarak biyometrik giriş başlat
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkAndStartBiometricLogin();
-    });
+    // WidgetsBinding.instance.addPostFrameCallback((_) {
+    //   _checkAndStartBiometricLogin();
+    // });
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
@@ -635,10 +635,6 @@ class _LoginScreenState extends State<LoginScreen>
           const SizedBox(height: 16),
         ],
         _buildLoginButton(),
-        if (_canUseBiometrics) ...[  // Still show biometric login if available
-          const SizedBox(height: 16),
-          _buildBiometricLoginButton(),
-        ],
         const SizedBox(height: 24),
         _buildRegisterRow(),
       ],
@@ -712,8 +708,8 @@ class _LoginScreenState extends State<LoginScreen>
         suffixIcon: IconButton(
           icon: Icon(
             _obscurePassword
-                ? Icons.visibility_off_rounded    // Şifre gizli iken kapalı göz ikonu
-                : Icons.visibility_rounded,       // Şifre görünür iken açık göz ikonu
+                ? Icons.visibility_off_rounded
+                : Icons.visibility_rounded,
             color: AppTheme.primaryColor,
             size: 22,
           ),
@@ -754,6 +750,13 @@ class _LoginScreenState extends State<LoginScreen>
           return 'Şifre 6 haneli olmalıdır';
         }
         return null;
+      },
+      onChanged: (value) async {
+        if (value.length == 6 && !_isLoading) {
+          if (_formKey.currentState != null && _formKey.currentState!.validate()) {
+            await _login();
+          }
+        }
       },
     );
   }
@@ -908,60 +911,60 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   // Biyometrik girişi otomatik başlat
-  Future<void> _checkAndStartBiometricLogin() async {
-    if (_isInitialized && _hasRefreshToken && _canUseBiometrics && !_isLoading && mounted) {
-      debugPrint('Biyometrik giriş otomatik olarak başlatılıyor...');
+  // Future<void> _checkAndStartBiometricLogin() async {
+  //   if (_isInitialized && _hasRefreshToken && _canUseBiometrics && !_isLoading && mounted) {
+  //     debugPrint('Biyometrik giriş otomatik olarak başlatılıyor...');
       
-      // Kısa bir gecikme ekleyerek UI'ın tamamen yüklenmesini bekleyelim
-      await Future.delayed(const Duration(milliseconds: 300));
+  //     // Kısa bir gecikme ekleyerek UI'ın tamamen yüklenmesini bekleyelim
+  //     await Future.delayed(const Duration(milliseconds: 300));
       
-      if (mounted) {
-        await _loginWithBiometrics();
-      }
-    }
-  }
+  //     if (mounted) {
+  //       await _loginWithBiometrics();
+  //     }
+  //   }
+  // }
 
   // Refresh token varsa ve biyometrik kimlik doğrulama etkinse otomatik olarak biyometrik giriş için hazırlık yap
-  Future<void> _prepareAutoBiometricLogin() async {
-    if (!mounted) return;
+  // Future<void> _prepareAutoBiometricLogin() async {
+  //   if (!mounted) return;
     
-    debugPrint('Biyometrik giriş hazırlığı yapılıyor...');
-    debugPrint('Refresh token var mı: $_hasRefreshToken');
-    debugPrint('Biyometrik doğrulama kullanılabilir mi: $_canUseBiometrics');
+  //   debugPrint('Biyometrik giriş hazırlığı yapılıyor...');
+  //   debugPrint('Refresh token var mı: $_hasRefreshToken');
+  //   debugPrint('Biyometrik doğrulama kullanılabilir mi: $_canUseBiometrics');
     
-    // Hem refresh token hem de biyometrik doğrulama mevcutsa, 
-    // ekran yüklendikten sonra biyometrik doğrulama penceresini göster
-    if (_hasRefreshToken && _canUseBiometrics) {
-      debugPrint('Biyometrik giriş için gerekli koşullar sağlanıyor. Biyometrik prompt gösterilecek...');
+  //   // Hem refresh token hem de biyometrik doğrulama mevcutsa, 
+  //   // ekran yüklendikten sonra biyometrik doğrulama penceresini göster
+  //   if (_hasRefreshToken && _canUseBiometrics) {
+  //     debugPrint('Biyometrik giriş için gerekli koşullar sağlanıyor. Biyometrik prompt gösterilecek...');
       
-      // Biraz bekleyelim, UI'ın tam yüklenmesi için
-      await Future.delayed(const Duration(milliseconds: 800));
+  //     // Biraz bekleyelim, UI'ın tam yüklenmesi için
+  //     await Future.delayed(const Duration(milliseconds: 800));
       
-      if (mounted) {
-        // Biyometrik deneme sayacını sıfırla
-        _biometricAttempts = 0;
+  //     if (mounted) {
+  //       // Biyometrik deneme sayacını sıfırla
+  //       _biometricAttempts = 0;
         
-        try {
-          // Access token kontrolü yap
-          final secureStorage = SecureStorageService();
-          final accessToken = await secureStorage.getAccessToken();
+  //       try {
+  //         // Access token kontrolü yap
+  //         final secureStorage = SecureStorageService();
+  //         final accessToken = await secureStorage.getAccessToken();
           
-          // Eğer access token yoksa, biyometrik girişi dene
-          if (accessToken == null) {
-            _showBiometricPrompt();
-          } else {
-            // Access token varsa, doğrudan ana sayfaya yönlendir
-            _navigateToHome();
-          }
-        } catch (e) {
-          debugPrint('Access token kontrolü sırasında hata: $e');
-          _showBiometricPrompt();
-        }
-      }
-    } else {
-      debugPrint('Biyometrik giriş için gerekli koşullar sağlanmıyor.');
-    }
-  }
+  //         // Eğer access token yoksa, biyometrik girişi dene
+  //         if (accessToken == null) {
+  //           _showBiometricPrompt();
+  //         } else {
+  //           // Access token varsa, doğrudan ana sayfaya yönlendir
+  //           _navigateToHome();
+  //         }
+  //       } catch (e) {
+  //         debugPrint('Access token kontrolü sırasında hata: $e');
+  //         _showBiometricPrompt();
+  //       }
+  //     }
+  //   } else {
+  //     debugPrint('Biyometrik giriş için gerekli koşullar sağlanmıyor.');
+  //   }
+  // }
   
   // Biyometrik kimlik doğrulama penceresini göster
   Future<void> _showBiometricPrompt() async {

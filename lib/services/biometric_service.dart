@@ -31,8 +31,8 @@ class BiometricService {
   Future<List<BiometricType>> getAvailableBiometrics() async {
     try {
       final biometrics = await _localAuth.getAvailableBiometrics();
-      // Yüz tanıma özelliğini filtreleyerek çıkar
-      return biometrics.where((type) => type != BiometricType.face).toList();
+      // Tüm biyometrik türleri döndür (yüz tanıma dahil)
+      return biometrics;
     } on PlatformException catch (e) {
       debugPrint('Biyometrik tür getirme hatası: $e');
       return [];
@@ -171,7 +171,7 @@ class BiometricService {
         return false;
       }
 
-      // Kullanılabilir biyometrik türlerini kontrol et (yüz tanıma hariç)
+      // Kullanılabilir biyometrik türlerini kontrol et (yüz tanıma dahil)
       final availableBiometrics = await getAvailableBiometrics();
       if (availableBiometrics.isEmpty) {
         debugPrint("Sadece parmak izi kullanılabilir, yüz tanıma devre dışı");
@@ -185,6 +185,8 @@ class BiometricService {
 
       // Kullanıcı tercihi kaydet
       await _secureStorage.setBiometricEnabled(true);
+      final enabled = await _secureStorage.getBiometricEnabled();
+      debugPrint('Biyometrik ayarı kaydedildi: $enabled');
       return true;
     } catch (e) {
       debugPrint('Biyometrik izin hatası: $e');
@@ -195,10 +197,27 @@ class BiometricService {
   // Biyometrik doğrulama tercihini devre dışı bırak
   Future<void> disableBiometricAuthentication() async {
     await _secureStorage.setBiometricEnabled(false);
+    final enabled = await _secureStorage.getBiometricEnabled();
+    debugPrint('Biyometrik ayarı devre dışı bırakıldı: $enabled');
   }
 
   // Biyometrik doğrulama etkin mi?
   Future<bool> isBiometricEnabled() async {
     return await _secureStorage.getBiometricEnabled();
+  }
+
+  // Cihazda herhangi bir biyometrik kayıt (yüz tanıma veya parmak izi) var mı?
+  Future<bool> hasAnyBiometricEnrolled() async {
+    try {
+      final isDeviceSupported = await _localAuth.isDeviceSupported();
+      if (!isDeviceSupported) return false;
+      final canCheckBiometrics = await _localAuth.canCheckBiometrics;
+      if (!canCheckBiometrics) return false;
+      final biometrics = await getAvailableBiometrics();
+      return biometrics.isNotEmpty;
+    } catch (e) {
+      debugPrint('Biyometrik kayıt kontrol hatası: $e');
+      return false;
+    }
   }
 }

@@ -203,7 +203,7 @@ class _RefreshLoginScreenState extends State<RefreshLoginScreen>
   }
 
   // Refresh token ile giriş
-  void _refreshLogin() async {
+  Future<void> _refreshLogin() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
@@ -757,10 +757,7 @@ class _RefreshLoginScreenState extends State<RefreshLoginScreen>
         _buildLoginButton(),
         const SizedBox(height: 12),
         _buildForgotPasswordButton(),
-        if (_canUseBiometrics) ...[
-          const SizedBox(height: 16),
-          _buildBiometricLoginButton(),
-        ],
+        // Biyometrik giriş butonunu ve _canUseBiometrics kontrolünü kaldırdım
         const SizedBox(height: 16),
         _buildDifferentAccountButton(),
         const SizedBox(height: 24),
@@ -833,8 +830,8 @@ class _RefreshLoginScreenState extends State<RefreshLoginScreen>
         suffixIcon: IconButton(
           icon: Icon(
             _obscurePassword
-                ? Icons.visibility_off_rounded    // Şifre gizli iken kapalı göz ikonu 
-                : Icons.visibility_rounded,       // Şifre görünür iken açık göz ikonu
+                ? Icons.visibility_off_rounded
+                : Icons.visibility_rounded,
             color: AppTheme.primaryColor,
             size: 22,
           ),
@@ -875,6 +872,13 @@ class _RefreshLoginScreenState extends State<RefreshLoginScreen>
           return 'Şifre 6 haneli olmalıdır';
         }
         return null;
+      },
+      onChanged: (value) async {
+        if (value.length == 6 && !_isLoading) {
+          if (_formKey.currentState != null && _formKey.currentState!.validate()) {
+            await _refreshLogin();
+          }
+        }
       },
     );
   }

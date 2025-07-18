@@ -62,9 +62,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadBiometricSettings() async {
     try {
       final biometricService = BiometricService();
-      final isAvailable = await biometricService.canAuthenticate();
+      final isAvailable = await biometricService.hasAnyBiometricEnrolled();
       final isEnabled = await biometricService.isBiometricEnabled();
-      
       if (mounted) {
         setState(() {
           _isBiometricAvailable = isAvailable;
@@ -87,10 +86,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _isLoading = true;
     });
-    
     try {
       final biometricService = BiometricService();
-      
       if (value) {
         // Biyometrik doğrulamayı aktifleştir
         if (!_isBiometricAvailable) {
@@ -101,20 +98,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           });
           return;
         }
-        
-        // Biyometrik doğrulama için kullanıcıdan izin iste
+        // Biyometrik doğrulama için kullanıcıdan izin iste (bir defalık)
         final authenticated = await biometricService.authenticate(
           reason: 'Biyometrik kimlik doğrulamayı aktifleştirmek için doğrulama yapın',
           description: 'Bu, uygulamaya girişte biyometrik kimlik doğrulamasını aktifleştirecektir',
         );
-        
         if (authenticated) {
           await biometricService.enableBiometricAuthentication();
           setState(() {
             _isBiometricEnabled = true;
           });
-          
-          // Kullanıcıya başarılı mesajı göster
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -134,8 +127,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         setState(() {
           _isBiometricEnabled = false;
         });
-        
-        // Kullanıcıya bilgi mesajı göster
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -147,8 +138,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     } catch (e) {
       debugPrint('Biyometrik ayarı değiştirirken hata: $e');
-      
-      // Hata mesajı göster
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -374,7 +363,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ? 'Uygulama girişinde parmak izi veya yüz tanıma kullanın'
                 : 'Bu cihazda biyometrik kimlik doğrulama mevcut değil',
             value: _isBiometricEnabled,
-            enabled: _isBiometricAvailable,
+            enabled: _isBiometricAvailable && !_isLoading,
             onChanged: _toggleBiometric,
           ),
           const Divider(),
