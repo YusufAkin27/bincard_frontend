@@ -37,6 +37,8 @@ import 'payment_points_screen.dart';
 import 'package:provider/provider.dart';
 import '../services/fcm_token_service.dart';
 import 'package:shimmer/shimmer.dart';
+import '../services/weather_service.dart';
+import 'package:geolocator/geolocator.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -82,6 +84,9 @@ class _HomeScreenState extends State<HomeScreen>
   String? _walletError;
   bool _isWalletLoading = false;
   final ScrollController _newsScrollController = ScrollController();
+  WeatherData? _weatherData;
+  bool _isWeatherLoading = false;
+  String? _weatherError;
 
   @override
   void initState() {
@@ -104,6 +109,7 @@ class _HomeScreenState extends State<HomeScreen>
     // Scroll listener ekle
     _newsScrollController.addListener(_onNewsScroll);
     _fetchWallet();
+    _fetchWeather();
   }
   
   // Haberleri servis üzerinden al
@@ -245,6 +251,74 @@ class _HomeScreenState extends State<HomeScreen>
     } finally {
       setState(() {
         _isWalletLoading = false;
+      });
+    }
+  }
+
+  Future<void> _fetchWeather() async {
+    debugPrint('[_fetchWeather] Fonksiyon çağrıldı');
+    setState(() {
+      _isWeatherLoading = true;
+      _weatherError = null;
+    });
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      debugPrint('[_fetchWeather] Konum servisi aktif mi: $serviceEnabled');
+      LocationPermission permission = await Geolocator.checkPermission();
+      debugPrint('[_fetchWeather] Konum izni: $permission');
+      if (!serviceEnabled) {
+        setState(() {
+          _isWeatherLoading = false;
+          _weatherError = 'Konum servisi kapalı.';
+        });
+        debugPrint('[_fetchWeather] Konum servisi kapalı, çıkılıyor');
+        return;
+      }
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        debugPrint('[_fetchWeather] Konum izni tekrar soruldu, yeni durum: $permission');
+        if (permission == LocationPermission.denied) {
+          setState(() {
+            _isWeatherLoading = false;
+            _weatherError = 'Konum izni reddedildi.';
+          });
+          debugPrint('[_fetchWeather] Konum izni reddedildi, çıkılıyor');
+          return;
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        setState(() {
+          _isWeatherLoading = false;
+          _weatherError = 'Konum izni kalıcı olarak reddedildi.';
+        });
+        debugPrint('[_fetchWeather] Konum izni kalıcı olarak reddedildi, çıkılıyor');
+        return;
+      }
+      final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.low);
+      debugPrint('[_fetchWeather] Kullanıcı konumu: ${pos.latitude}, ${pos.longitude}');
+      final weatherService = WeatherService();
+      final weather = await weatherService.getWeather(pos.latitude, pos.longitude);
+      debugPrint('[_fetchWeather] Weather response: $weather');
+      if (weather == null) {
+        setState(() {
+          _weatherData = null;
+          _isWeatherLoading = false;
+          _weatherError = 'Hava durumu alınamadı.';
+        });
+        debugPrint('[_fetchWeather] Hava durumu alınamadı, null response');
+      } else {
+        setState(() {
+          _weatherData = weather;
+          _isWeatherLoading = false;
+          _weatherError = null;
+        });
+        debugPrint('[_fetchWeather] Hava durumu başarıyla alındı: ${weather.temperature}°C, ${weather.description}');
+      }
+    } catch (e) {
+      debugPrint('[_fetchWeather] Hava durumu çekme hatası: $e');
+      setState(() {
+        _isWeatherLoading = false;
+        _weatherError = 'Hava durumu alınırken hata oluştu.';
       });
     }
   }
@@ -2069,8 +2143,98 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
+  void _showWeatherDetailsModal(BuildContext context) {
+    if (_weatherData == null) return;
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  if (_weatherData!.iconCode.endsWith('n'))
+                    const Icon(Icons.nightlight_round, size: 36, color: Colors.amber)
+                  else
+                    Image.network(
+                      _weatherData!.getIconUrl(),
+                      width: 36,
+                      height: 36,
+                      errorBuilder: (context, error, stackTrace) => Icon(Icons.wb_sunny_outlined, size: 28, color: AppTheme.primaryColor),
+                    ),
+                  const SizedBox(width: 16),
+                  Text(
+                    '${_weatherData!.temperature.round()}°C',
+                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _weatherData!.description.isNotEmpty
+                          ? _weatherData!.description[0].toUpperCase() + _weatherData!.description.substring(1)
+                          : '',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              if (_weatherData!.cityName != null)
+                Row(
+                  children: [
+                    const Icon(Icons.location_on, size: 18, color: Colors.red),
+                    const SizedBox(width: 8),
+                    Text(_weatherData!.cityName!, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              if (_weatherData!.windSpeed != null)
+                Row(
+                  children: [
+                    const Icon(Icons.air, size: 18, color: Colors.teal),
+                    const SizedBox(width: 8),
+                    Text('Rüzgar: ${_weatherData!.windSpeed!.toStringAsFixed(1)} m/s', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              if (_weatherData!.humidity != null)
+                Row(
+                  children: [
+                    const Icon(Icons.water_drop, size: 18, color: Colors.lightBlue),
+                    const SizedBox(width: 8),
+                    Text('Nem: ${_weatherData!.humidity}%', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              if (_weatherData!.pressure != null)
+                Row(
+                  children: [
+                    const Icon(Icons.speed, size: 18, color: Colors.deepPurple),
+                    const SizedBox(width: 8),
+                    Text('Basınç: ${_weatherData!.pressure} hPa', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Kapat'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   // Elegant welcome header with greeting
   Widget _buildWelcomeHeader() {
+    debugPrint('[Widget] _buildWelcomeHeader renderlandı. _weatherData: $_weatherData, _isWeatherLoading: $_isWeatherLoading, _weatherError: $_weatherError');
     final hour = DateTime.now().hour;
     String greeting;
     
@@ -2116,24 +2280,72 @@ class _HomeScreenState extends State<HomeScreen>
                 color: AppTheme.primaryColor.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.wb_sunny_outlined,
-                    size: 16,
-                    color: AppTheme.primaryColor,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '21°C',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.primaryColor,
-                    ),
-                  ),
-                ],
+              child: GestureDetector(
+                onTap: _weatherData != null ? () => _showWeatherDetailsModal(context) : null,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_isWeatherLoading)
+                      SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor),
+                      )
+                    else if (_weatherData != null)
+                      Row(
+                        children: [
+                          if (_weatherData!.iconCode.endsWith('n'))
+                            const Icon(Icons.nightlight_round, size: 22, color: AppTheme.primaryColor)
+                          else
+                            Image.network(
+                              _weatherData!.getIconUrl(),
+                              width: 22,
+                              height: 22,
+                              errorBuilder: (context, error, stackTrace) => Icon(Icons.wb_sunny_outlined, size: 16, color: AppTheme.primaryColor),
+                            ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${_weatherData!.temperature.round()}°C',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                        ],
+                      )
+                    else if (_weatherError != null)
+                      Row(
+                        children: [
+                          Icon(Icons.error_outline, size: 16, color: Colors.red),
+                          const SizedBox(width: 4),
+                          Text(
+                            _weatherError!,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.red,
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      Row(
+                        children: [
+                          Icon(Icons.wb_sunny_outlined, size: 16, color: AppTheme.primaryColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            '--°C',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
               ),
             ),
           ],
