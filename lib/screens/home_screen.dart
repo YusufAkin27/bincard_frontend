@@ -34,6 +34,7 @@ import 'news_detail_screen.dart';
 import '../widgets/video_player_widget.dart';
 import 'news_detail_from_id_screen.dart';
 import 'payment_points_screen.dart';
+import 'places_screen.dart';
 import 'package:provider/provider.dart';
 import '../services/fcm_token_service.dart';
 import 'package:shimmer/shimmer.dart';
@@ -1213,6 +1214,14 @@ class _HomeScreenState extends State<HomeScreen>
         'onTap': () => Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const PaymentPointsScreen()),
+        ),
+      },
+      {
+        'icon': Icons.place,
+        'label': 'Yakındaki Yerler',
+        'onTap': () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const PlacesScreen()),
         ),
       },
     ];
