@@ -1,7 +1,7 @@
 class ApiConstants {
   // Base URL for API requests
   // Updated API URL
-  static const String baseUrl = 'http://192.168.174.214:8080/v1/api';
+  static const String baseUrl = 'http://192.168.219.61:8080/v1/api';
   
   // Ortam değişkenleri
   static const Duration connectTimeout = Duration(seconds: 30);
@@ -83,6 +83,7 @@ class ApiConstants {
   static String get topUpWalletEndpoint => '/wallet/top-up';
   static String get transferWalletEndpoint => '/wallet/transfer';
   static String get createWalletEndpoint => '/wallet/create';
+  static String walletNameEndpoint(String input) => '/wallet/name?input=$input';
   static String walletActivitiesEndpoint({String? type, String? start, String? end, int page = 0, int size = 20, String sort = 'activityDate,desc'}) {
     final params = <String, String>{
       if (type != null) 'type': type,

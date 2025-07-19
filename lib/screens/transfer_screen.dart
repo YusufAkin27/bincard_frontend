@@ -10,6 +10,7 @@ import 'qr_generate_screen.dart';
 import 'qr_scan_screen.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:convert'; // Added for base64Decode
+import 'dart:async'; // Timer için import
 
 class TransferScreen extends StatefulWidget {
   final String wiban; // Kullanıcının kendi wiban'ı
@@ -27,6 +28,10 @@ class _TransferScreenState extends State<TransferScreen>
   final _noteController = TextEditingController();
   int _selectedTransferMethod = 0; // 0: NFC, 1: QR Kod
   int _selectedCardIndex = 0;
+  bool _isLoading = false; // Transfer işlemi sırasında loading durumu
+  Timer? _debounceTimer; // Debounce timer
+  int _currentStep = 0; // Mevcut adım
+  final int _totalSteps = 5; // Toplam adım sayısı (ön izleme dahil)
   final List<Map<String, dynamic>> _myCards = [
     {
       'name': 'Şehir Kartı',
@@ -86,6 +91,7 @@ class _TransferScreenState extends State<TransferScreen>
     _amountController.dispose();
     _noteController.dispose();
     _receiverController.dispose();
+    _debounceTimer?.cancel(); // Timer'ı temizle
     super.dispose();
   }
 
@@ -111,26 +117,459 @@ class _TransferScreenState extends State<TransferScreen>
       ),
       body: Form(
         key: _formKey,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            _buildStepperHeader(),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16.0),
+                child: _buildCurrentStepContent(),
+              ),
+            ),
+            _buildStepperNavigation(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStepperHeader() {
+    return Container(
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: List.generate(_totalSteps, (index) {
+          final isActive = index == _currentStep;
+          final isCompleted = index < _currentStep;
+          
+          return Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isCompleted || isActive 
+                          ? AppTheme.primaryColor 
+                          : Colors.grey.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                if (index < _totalSteps - 1)
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: isCompleted 
+                          ? AppTheme.primaryColor 
+                          : Colors.grey.withOpacity(0.3),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+              ],
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _buildCurrentStepContent() {
+    switch (_currentStep) {
+      case 0:
+        return _buildStep1TransferMethod();
+      case 1:
+        return _buildStep2SenderCard();
+      case 2:
+        return _buildStep3ReceiverDetails();
+      case 3:
+        return _buildStep4TransferDetails();
+      case 4:
+        return _buildStep5Preview();
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Widget _buildStepperNavigation() {
+    return Container(
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          if (_currentStep > 0)
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () {
+                  setState(() {
+                    _currentStep--;
+                  });
+                },
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: const Text('Geri'),
+              ),
+            ),
+          if (_currentStep > 0) const SizedBox(width: 16),
+          Expanded(
+            child: ElevatedButton(
+              onPressed: _isLoading ? null : _handleNextStep,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                elevation: 0,
+              ),
+              child: _isLoading
+                  ? const Text('İşleniyor...')
+                  : Text(_currentStep == _totalSteps - 1 ? 'Transferi Gönder' : 'İleri'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _handleNextStep() {
+    if (_currentStep == _totalSteps - 1) {
+      _handleTransfer();
+    } else {
+      // Son adımdan önce form validasyonu yap
+      if (_currentStep == 3) {
+        if (!_validateTransferForm()) {
+          return;
+        }
+      }
+      setState(() {
+        _currentStep++;
+      });
+    }
+  }
+
+  bool _validateTransferForm() {
+    // Transfer form validasyonu
+    if (_receiverController.text.trim().isEmpty) {
+      _showErrorDialog('Alıcı bilgisi zorunludur');
+      return false;
+    }
+    if (_receiverNameController.text.trim().isEmpty) {
+      _showErrorDialog('Alıcı ad soyad zorunludur');
+      return false;
+    }
+    if (_amountController.text.trim().isEmpty) {
+      _showErrorDialog('Transfer tutarı zorunludur');
+      return false;
+    }
+    try {
+      double amount = double.parse(_amountController.text.replaceAll(',', '.'));
+      if (amount <= 0) {
+        _showErrorDialog('Tutar 0\'dan büyük olmalıdır');
+        return false;
+      }
+    } catch (e) {
+      _showErrorDialog('Geçerli bir tutar girin');
+      return false;
+    }
+    return true;
+  }
+
+  Widget _buildStep1TransferMethod() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Transfer Yöntemi Seçin'),
+        const SizedBox(height: 16),
+        _buildTransferMethodSelector(),
+      ],
+    );
+  }
+
+  Widget _buildStep2SenderCard() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Gönderen Cüzdan'),
+        const SizedBox(height: 16),
+        _buildCardSelector(),
+      ],
+    );
+  }
+
+  Widget _buildStep3ReceiverDetails() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Alıcı Bilgileri'),
+        const SizedBox(height: 16),
+        _buildReceiverDetails(),
+      ],
+    );
+  }
+
+  Widget _buildStep4TransferDetails() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Transfer Detayları'),
+        const SizedBox(height: 16),
+        _buildTransferAmountAndNote(),
+      ],
+    );
+  }
+
+  Widget _buildStep5Preview() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Transfer Ön İzleme'),
+        const SizedBox(height: 16),
+        _buildPreviewCard(),
+      ],
+    );
+  }
+
+  Widget _buildPreviewCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Transfer Yöntemi
+          _buildPreviewRow(
+            icon: _selectedTransferMethod == 0 ? Icons.nfc : Icons.qr_code,
+            title: 'Transfer Yöntemi',
+            value: _selectedTransferMethod == 0 ? 'WIBAN ile Transfer' : 'QR Kod ile Transfer',
+          ),
+          const Divider(height: 24),
+          
+          // Gönderen Cüzdan
+          _buildPreviewRow(
+            icon: Icons.account_balance_wallet,
+            title: 'Gönderen Cüzdan',
+            value: _walletData != null ? 'Bakiye: ${_walletData!['balance']} ₺' : 'Cüzdan bilgisi alınamadı',
+          ),
+          const Divider(height: 24),
+          
+          // Alıcı Bilgileri
+          _buildPreviewRow(
+            icon: Icons.person,
+            title: 'Alıcı Bilgisi',
+            value: _receiverController.text.trim(),
+          ),
+          const SizedBox(height: 12),
+          _buildPreviewRow(
+            icon: Icons.account_circle,
+            title: 'Alıcı Ad Soyad',
+            value: _receiverNameController.text.trim(),
+          ),
+          const Divider(height: 24),
+          
+          // Transfer Detayları
+          _buildPreviewRow(
+            icon: Icons.money,
+            title: 'Transfer Tutarı',
+            value: '${_amountController.text} ₺',
+            valueColor: AppTheme.primaryColor,
+            valueFontWeight: FontWeight.bold,
+          ),
+          if (_noteController.text.trim().isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _buildPreviewRow(
+              icon: Icons.note,
+              title: 'Açıklama',
+              value: _noteController.text.trim(),
+            ),
+          ],
+          const SizedBox(height: 24),
+          
+          // Uyarı Mesajı
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.warning_amber, color: Colors.orange, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Transfer işlemi geri alınamaz. Bilgileri kontrol edin.',
+                    style: TextStyle(
+                      color: Colors.orange.shade700,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPreviewRow({
+    required IconData icon,
+    required String title,
+    required String value,
+    Color? valueColor,
+    FontWeight? valueFontWeight,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: AppTheme.primaryColor, size: 20),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildTransferMethodSelector(),
-              const SizedBox(height: 24),
-              _buildSectionTitle('Gönderen Kart'),
-              const SizedBox(height: 12),
-              _buildCardSelector(),
-              const SizedBox(height: 24),
-              _buildSectionTitle('Transfer Detayları'),
-              const SizedBox(height: 12),
-              _buildTransferDetails(),
-              const SizedBox(height: 32),
-              _buildTransferButton(),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppTheme.textSecondaryColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: valueColor ?? AppTheme.textPrimaryColor,
+                  fontWeight: valueFontWeight ?? FontWeight.w600,
+                ),
+              ),
             ],
           ),
         ),
-      ),
+      ],
+    );
+  }
+
+  Widget _buildReceiverDetails() {
+    return Column(
+      children: [
+        _buildTextField(
+          controller: _receiverController,
+          label: 'Alıcı Bilgisi',
+          hint: 'WIBAN, Telefon, E-posta veya Kimlik No',
+          prefixIcon: Icons.person,
+          onChanged: (value) async {
+            if (value.isNotEmpty && value.length >= 8) {
+              await _fetchReceiverName(value);
+            } else {
+              setState(() {
+                _receiverName = null;
+              });
+            }
+          },
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Alıcı bilgisi zorunlu';
+            }
+            return null;
+          },
+        ),
+        const SizedBox(height: 16),
+        _buildTextField(
+          controller: _receiverNameController,
+          label: 'Ad Soyad',
+          hint: _receiverName != null && _receiverName!.isNotEmpty ? _receiverName! : 'Alıcının adı ve soyadı',
+          prefixIcon: Icons.account_circle,
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return 'Alıcı ad soyad zorunludur';
+            }
+            return null;
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTransferAmountAndNote() {
+    return Column(
+      children: [
+        _buildTextField(
+          controller: _amountController,
+          label: 'Transfer Tutarı',
+          hint: '0.00',
+          prefixIcon: Icons.money,
+          suffixText: '₺',
+          keyboardType: TextInputType.number,
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Lütfen bir tutar girin';
+            }
+            try {
+              double amount = double.parse(value.replaceAll(',', '.'));
+              if (amount <= 0) {
+                return 'Tutar 0\'dan büyük olmalıdır';
+              }
+            } catch (e) {
+              return 'Geçerli bir tutar girin';
+            }
+            return null;
+          },
+        ),
+        const SizedBox(height: 16),
+        _buildTextField(
+          controller: _noteController,
+          label: 'Açıklama (İsteğe bağlı)',
+          hint: 'Transfer için bir açıklama ekleyin',
+          prefixIcon: Icons.note,
+          maxLines: 2,
+        ),
+      ],
     );
   }
 
@@ -305,82 +744,7 @@ class _TransferScreenState extends State<TransferScreen>
     );
   }
 
-  Widget _buildTransferDetails() {
-    return Column(
-      children: [
-        _buildSelectedTransferMethodContent(),
-        const SizedBox(height: 16),
-        _buildTextField(
-          controller: _receiverController,
-          label: 'Alıcı Telefonu veya WIBAN',
-          hint: '5331000001 veya WIBAN',
-          prefixIcon: Icons.person,
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Alıcı bilgisi zorunlu';
-            }
-            return null;
-          },
-        ),
-        const SizedBox(height: 8),
-        _buildTextField(
-          controller: _receiverNameController,
-          label: 'Ad Soyad',
-          hint: 'Alıcı adı ve soyadı',
-          prefixIcon: Icons.account_circle,
-          validator: (value) {
-            // Ad soyad zorunlu değil, isterseniz zorunlu yapabilirsiniz
-            return null;
-          },
-        ),
-        if (_receiverName != null && _receiverName!.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
-            child: Row(
-              children: [
-                const Icon(Icons.account_circle, color: Colors.grey),
-                const SizedBox(width: 8),
-                Text(
-                  _receiverName!,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-                ),
-              ],
-            ),
-          ),
-        const SizedBox(height: 16),
-        _buildTextField(
-          controller: _amountController,
-          label: 'Transfer Tutarı',
-          hint: '0.00',
-          prefixIcon: Icons.money,
-          suffixText: '₺',
-          keyboardType: TextInputType.number,
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Lütfen bir tutar girin';
-            }
-            try {
-              double amount = double.parse(value.replaceAll(',', '.'));
-              if (amount <= 0) {
-                return 'Tutar 0\'dan büyük olmalıdır';
-              }
-            } catch (e) {
-              return 'Geçerli bir tutar girin';
-            }
-            return null;
-          },
-        ),
-        const SizedBox(height: 16),
-        _buildTextField(
-          controller: _noteController,
-          label: 'Açıklama (İsteğe bağlı)',
-          hint: 'Transfer için bir açıklama ekleyin',
-          prefixIcon: Icons.note,
-          maxLines: 2,
-        ),
-      ],
-    );
-  }
+
 
   Widget _buildSelectedTransferMethodContent() {
     if (_selectedTransferMethod == 0) {
@@ -621,6 +985,27 @@ class _TransferScreenState extends State<TransferScreen>
     );
   }
 
+  Future<void> _fetchReceiverName(String input) async {
+    try {
+      final api = ApiService();
+      final accessToken = await SecureStorageService().getAccessToken();
+      final response = await api.get(
+        ApiConstants.walletNameEndpoint(input),
+        options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
+      );
+      if (response.data != null && response.data.toString().isNotEmpty) {
+        setState(() {
+          _receiverName = response.data.toString();
+        });
+      }
+    } catch (e) {
+      debugPrint('Alıcı adı getirme hatası: $e');
+      setState(() {
+        _receiverName = null;
+      });
+    }
+  }
+
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
@@ -630,6 +1015,7 @@ class _TransferScreenState extends State<TransferScreen>
     TextInputType? keyboardType,
     int maxLines = 1,
     String? Function(String?)? validator,
+    Function(String)? onChanged,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -647,6 +1033,7 @@ class _TransferScreenState extends State<TransferScreen>
         controller: controller,
         keyboardType: keyboardType,
         maxLines: maxLines,
+        onChanged: onChanged,
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
@@ -673,36 +1060,39 @@ class _TransferScreenState extends State<TransferScreen>
     );
   }
 
-  Widget _buildTransferButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton.icon(
-        onPressed: _handleTransfer,
-        icon: const Icon(Icons.sync_alt),
-        label: const Text('Transferi Gönder'),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppTheme.primaryColor,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          elevation: 0,
-        ),
-      ),
-    );
-  }
+
 
   Future<void> _handleTransfer() async {
     if (!_formKey.currentState!.validate()) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Transferi Onayla'),
+        content: const Text('Bu transferi gerçekleştirmek istediğinize emin misiniz?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Vazgeç'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Onayla'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    setState(() {
+      _isLoading = true;
+    });
     final api = ApiService();
     final accessToken = await SecureStorageService().getAccessToken();
     final double amount = double.tryParse(_amountController.text.replaceAll(',', '.')) ?? 0;
     final body = {
       'receiverIdentifier': _receiverController.text.trim(),
+      'receiverNameAndSurname': _receiverNameController.text.trim(),
       'amount': amount,
       'description': _noteController.text.trim(),
-      // Ad soyad API'ye gönderilmeyecek
     };
     try {
       final response = await api.post(
@@ -717,6 +1107,12 @@ class _TransferScreenState extends State<TransferScreen>
       }
     } catch (e) {
       _showErrorDialog('Transfer sırasında hata oluştu.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 

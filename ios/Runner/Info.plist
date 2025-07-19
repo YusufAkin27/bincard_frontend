@@ -74,5 +74,9 @@
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>QR kod taramak için kameraya ihtiyacımız var.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Yakındaki yerleri bulmak için konumunuza ihtiyacımız var.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Yakındaki yerleri bulmak için konumunuza ihtiyacımız var.</string>
 </dict>
 </plist>
